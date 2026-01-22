@@ -1,14 +1,15 @@
 --[[=============================================================
-Ys2cBript - Premium Hub (Red Theme)
-Advanced UI + Loading Screen + Fixed Jump + Wall Remover +
-Auto Heal + Fast Hit + Auto Drag Combo + ESP + Player Info +
-Misc Tools, Vertex UI removed, UI password gate.
-Password: Y2B
+Ys2cBript - Premium Hub (Red Anime Theme)
+Advanced UI + Smoke/Thunder Password Gate + Loading Screen +
+Fixed Jump + Wall Remover + Auto Heal + Combat / ESP / Farm
+
+Key: via password gate (Run / Pastebin-valid)
+Discord: https://discord.gg/KWKyYSKFhP
 ===============================================================]]
 
---// PASSWORD GATE (UI-BASED)
-local EXPECTED_PASSWORD = "Y2B"
-
+----------------------------------------------------------------
+-- SERVICES
+----------------------------------------------------------------
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -25,127 +26,448 @@ local function safeChar()
     return LP.Character or LP.CharacterAdded:Wait()
 end
 
--- UI password prompt
+----------------------------------------------------------------
+-- KEY / PASSWORD GATE (ANIME SMOKE + THUNDER)
+----------------------------------------------------------------
+
+local EXPECTED_PASSWORD = "Run" -- fallback local key
+local KEY_URL = "https://pastebin.com/raw/i1ZSqKcn"
+local DISCORD_INVITE = "https://discord.gg/KWKyYSKFhP"
+
+local passwordAccepted = false
+
+-- clipboard helper
+local function copyToClipboard(text)
+    local ok = false
+    pcall(function()
+        if setclipboard then
+            setclipboard(text)
+            ok = true
+        elseif toclipboard then
+            toclipboard(text)
+            ok = true
+        end
+    end)
+    return ok
+end
+
+-- OPTIONAL: remote key validation
+-- Adjust this based on the format of your Pastebin.
+local function validateKey(inputKey)
+    -- if local only:
+    -- return (inputKey == EXPECTED_PASSWORD), "Invalid key."
+
+    -- Hybrid: accept local "Run" OR remote list.
+    if inputKey == EXPECTED_PASSWORD then
+        return true, "Key accepted (local)."
+    end
+
+    local ok, body = pcall(game.HttpGet, game, KEY_URL)
+    if not ok or not body or body == "" then
+        return false, "Key server error. Try again."
+    end
+
+    -- EXAMPLE handling: assume each key is in a new line.
+    -- Modify if your paste is JSON or another format.
+    local found = false
+    for line in string.gmatch(body, "[^\r\n]+") do
+        if line == inputKey then
+            found = true
+            break
+        end
+    end
+
+    if found then
+        return true, "Key accepted."
+    else
+        return false, "Invalid key. Get a valid key from the Discord."
+    end
+end
+
+-- ROOT GUI + BACKGROUND
 local PasswordGui = Instance.new("ScreenGui")
-PasswordGui.Name = "Ys2cBript_Password"
+PasswordGui.Name = "Ys2cBript_Password_Anime"
 PasswordGui.ResetOnSpawn = false
 PasswordGui.Parent = CoreGui
 
+-- Dark red base
+local BG = Instance.new("Frame")
+BG.Size = UDim2.new(1, 0, 1, 0)
+BG.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BG.BorderSizePixel = 0
+BG.Parent = PasswordGui
+
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 10, 10)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 0, 0))
+})
+Gradient.Rotation = 45
+Gradient.Parent = BG
+
+-- Soft vignette overlay
+local Vignette = Instance.new("ImageLabel")
+Vignette.Size = UDim2.new(1.2, 0, 1.2, 0)
+Vignette.Position = UDim2.new(-0.1, 0, -0.1, 0)
+Vignette.BackgroundTransparency = 1
+Vignette.Image = "rbxassetid://4576475444" -- generic circular gradient
+Vignette.ImageColor3 = Color3.new(0, 0, 0)
+Vignette.ImageTransparency = 0.25
+Vignette.ZIndex = 0
+Vignette.Parent = BG
+
+-- CENTER PASSWORD FRAME
 local PassFrame = Instance.new("Frame")
-PassFrame.Size = UDim2.new(0, 260, 0, 130)
-PassFrame.Position = UDim2.new(0.5, -130, 0.5, -65)
-PassFrame.BackgroundColor3 = Color3.fromRGB(20, 8, 8)
+PassFrame.Size = UDim2.new(0, 340, 0, 210)
+PassFrame.Position = UDim2.new(0.5, -170, 0.5, -105)
+PassFrame.BackgroundColor3 = Color3.fromRGB(15, 0, 0)
 PassFrame.BorderSizePixel = 0
 PassFrame.Active = true
 PassFrame.Draggable = true
+PassFrame.ZIndex = 10
 PassFrame.Parent = PasswordGui
 
 local PassCorner = Instance.new("UICorner")
-PassCorner.CornerRadius = UDim.new(0, 10)
+PassCorner.CornerRadius = UDim.new(0, 14)
 PassCorner.Parent = PassFrame
 
 local PassStroke = Instance.new("UIStroke")
-PassStroke.Color = Color3.fromRGB(200, 60, 60)
-PassStroke.Thickness = 1.5
+PassStroke.Color = Color3.fromRGB(220, 60, 60)
+PassStroke.Thickness = 2
 PassStroke.Parent = PassFrame
 
+local InnerGlow = Instance.new("ImageLabel")
+InnerGlow.Size = UDim2.new(1.4, 0, 1.8, 0)
+InnerGlow.Position = UDim2.new(-0.2, 0, -0.4, 0)
+InnerGlow.BackgroundTransparency = 1
+InnerGlow.Image = "rbxassetid://5028857084"
+InnerGlow.ImageColor3 = Color3.fromRGB(255, 60, 60)
+InnerGlow.ImageTransparency = 0.65
+InnerGlow.ZIndex = 9
+InnerGlow.Parent = PassFrame
+
 local PassTitle = Instance.new("TextLabel")
-PassTitle.Size = UDim2.new(1, -20, 0, 26)
+PassTitle.Size = UDim2.new(1, -20, 0, 28)
 PassTitle.Position = UDim2.new(0, 10, 0, 10)
 PassTitle.BackgroundTransparency = 1
-PassTitle.Font = Enum.Font.GothamBold
-PassTitle.TextSize = 18
-PassTitle.TextColor3 = Color3.fromRGB(255, 230, 230)
-PassTitle.Text = "Ys2cBript | Password"
+PassTitle.Font = Enum.Font.GothamBlack
+PassTitle.TextSize = 20
+PassTitle.TextColor3 = Color3.fromRGB(255, 240, 240)
+PassTitle.Text = "Y2B Red Gate"
+PassTitle.ZIndex = 11
 PassTitle.Parent = PassFrame
 
 local PassSub = Instance.new("TextLabel")
-PassSub.Size = UDim2.new(1, -20, 0, 18)
-PassSub.Position = UDim2.new(0, 10, 0, 36)
+PassSub.Size = UDim2.new(1, -20, 0, 34)
+PassSub.Position = UDim2.new(0, 10, 0, 40)
 PassSub.BackgroundTransparency = 1
 PassSub.Font = Enum.Font.Gotham
 PassSub.TextSize = 13
-PassSub.TextColor3 = Color3.fromRGB(240, 140, 140)
-PassSub.Text = "Enter password to load the hub"
+PassSub.TextColor3 = Color3.fromRGB(255, 150, 150)
+PassSub.TextWrapped = true
 PassSub.TextXAlignment = Enum.TextXAlignment.Left
+PassSub.Text = "The red storm watches you. Enter the key to break the seal."
+PassSub.ZIndex = 11
 PassSub.Parent = PassFrame
 
 local PassBox = Instance.new("TextBox")
-PassBox.Size = UDim2.new(1, -20, 0, 28)
-PassBox.Position = UDim2.new(0, 10, 0, 62)
-PassBox.BackgroundColor3 = Color3.fromRGB(35, 10, 10)
+PassBox.Size = UDim2.new(1, -20, 0, 30)
+PassBox.Position = UDim2.new(0, 10, 0, 80)
+PassBox.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
 PassBox.BorderSizePixel = 0
 PassBox.Font = Enum.Font.Gotham
 PassBox.TextSize = 14
-PassBox.TextColor3 = Color3.fromRGB(255, 230, 230)
-PassBox.PlaceholderText = "Password here..."
+PassBox.TextColor3 = Color3.fromRGB(255, 240, 240)
+PassBox.PlaceholderText = "Key..."
+PassBox.ZIndex = 11
 PassBox.Parent = PassFrame
 
 local PassBoxCorner = Instance.new("UICorner")
-PassBoxCorner.CornerRadius = UDim.new(0, 6)
+PassBoxCorner.CornerRadius = UDim.new(0, 8)
 PassBoxCorner.Parent = PassBox
 
+-- Discord + Unlock row
+local DiscordBtn = Instance.new("TextButton")
+DiscordBtn.Size = UDim2.new(0, 130, 0, 26)
+DiscordBtn.Position = UDim2.new(0, 10, 1, -38)
+DiscordBtn.BackgroundColor3 = Color3.fromRGB(90, 0, 0)
+DiscordBtn.BorderSizePixel = 0
+DiscordBtn.Font = Enum.Font.GothamBold
+DiscordBtn.TextSize = 13
+DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+DiscordBtn.Text = "Discord (Copy Link)"
+DiscordBtn.ZIndex = 11
+DiscordBtn.Parent = PassFrame
+
+local DiscordCorner = Instance.new("UICorner")
+DiscordCorner.CornerRadius = UDim.new(0, 8)
+DiscordCorner.Parent = DiscordBtn
+
 local PassBtn = Instance.new("TextButton")
-PassBtn.Size = UDim2.new(0, 90, 0, 26)
-PassBtn.Position = UDim2.new(1, -100, 1, -34)
-PassBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+PassBtn.Size = UDim2.new(0, 110, 0, 26)
+PassBtn.Position = UDim2.new(1, -120, 1, -38)
+PassBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
 PassBtn.BorderSizePixel = 0
 PassBtn.Font = Enum.Font.GothamBold
 PassBtn.TextSize = 14
 PassBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 PassBtn.Text = "Unlock"
+PassBtn.ZIndex = 11
 PassBtn.Parent = PassFrame
 
 local PassBtnCorner = Instance.new("UICorner")
-PassBtnCorner.CornerRadius = UDim.new(0, 6)
+PassBtnCorner.CornerRadius = UDim.new(0, 8)
 PassBtnCorner.Parent = PassBtn
 
 local PassStatus = Instance.new("TextLabel")
-PassStatus.Size = UDim2.new(1, -20, 0, 18)
-PassStatus.Position = UDim2.new(0, 10, 1, -24)
+PassStatus.Size = UDim2.new(1, -20, 0, 32)
+PassStatus.Position = UDim2.new(0, 10, 1, -72)
 PassStatus.BackgroundTransparency = 1
 PassStatus.Font = Enum.Font.Gotham
 PassStatus.TextSize = 12
-PassStatus.TextColor3 = Color3.fromRGB(255, 120, 120)
-PassStatus.Text = ""
+PassStatus.TextColor3 = Color3.fromRGB(255, 170, 170)
+PassStatus.TextWrapped = true
 PassStatus.TextXAlignment = Enum.TextXAlignment.Left
+PassStatus.Text = "The storm is waiting..."
+PassStatus.ZIndex = 11
 PassStatus.Parent = PassFrame
 
-local passwordAccepted = false
+DiscordBtn.MouseEnter:Connect(function()
+    TweenService:Create(DiscordBtn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(140, 0, 0)
+    }):Play()
+end)
+DiscordBtn.MouseLeave:Connect(function()
+    TweenService:Create(DiscordBtn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(90, 0, 0)
+    }):Play()
+end)
+
+DiscordBtn.MouseButton1Click:Connect(function()
+    local ok = copyToClipboard(DISCORD_INVITE)
+    if ok then
+        PassStatus.Text = "Discord link copied – paste in browser."
+    else
+        PassStatus.Text = "Clipboard not supported – link:\n" .. DISCORD_INVITE
+    end
+end)
+
+-- SMOKE BANDS (TOP + BOTTOM, FULL-SCREEN STYLE)
+local SmokeTop = Instance.new("Frame")
+SmokeTop.Name = "SmokeTop"
+SmokeTop.Size = UDim2.new(1.2, 0, 0, 140)
+SmokeTop.Position = UDim2.new(-0.1, 0, -0.02, 0)
+SmokeTop.BackgroundTransparency = 1
+SmokeTop.ZIndex = 3
+SmokeTop.Parent = PasswordGui
+
+local SmokeBottom = Instance.new("Frame")
+SmokeBottom.Name = "SmokeBottom"
+SmokeBottom.Size = UDim2.new(1.2, 0, 0, 140)
+SmokeBottom.Position = UDim2.new(-0.1, 0, 1, -140)
+SmokeBottom.BackgroundTransparency = 1
+SmokeBottom.ZIndex = 3
+SmokeBottom.Parent = PasswordGui
+
+local function createSmokeStrip(parent, baseY, flip)
+    local textureId = "rbxassetid://5028857084"
+    for i = 1, 7 do
+        local img = Instance.new("ImageLabel")
+        img.BackgroundTransparency = 1
+        img.Image = textureId
+        img.ImageColor3 = Color3.fromRGB(235, 60, 60)
+        img.ImageTransparency = 0.45 + math.random() * 0.25
+        img.Size = UDim2.new(0, 260 + math.random(-40, 80), 0, 140 + math.random(-10, 40))
+        img.Position = UDim2.new(-0.3 + (i - 1) * 0.3, 0, 0, baseY + math.random(-10, 10))
+        img.Rotation = flip and (180 + math.random(-12, 12)) or math.random(-12, 12)
+        img.ZIndex = 3
+        img.Parent = parent
+
+        task.spawn(function()
+            while not passwordAccepted and img.Parent do
+                local dir = (math.random(0, 1) == 0) and -1 or 1
+                local drift = 0.08 + math.random() * 0.08
+                local yDrift = (flip and -1 or 1) * (2 + math.random() * 3)
+
+                local moveGoal = {
+                    Position = img.Position + UDim2.new(drift * dir, 0, 0, yDrift),
+                    ImageTransparency = math.clamp(
+                        img.ImageTransparency + (math.random() * 0.12 - 0.06),
+                        0.3,
+                        0.9
+                    ),
+                    Rotation = img.Rotation + math.random(-4, 4)
+                }
+
+                local tw = TweenService:Create(
+                    img,
+                    TweenInfo.new(3.5 + math.random() * 2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                    moveGoal
+                )
+                tw:Play()
+                tw.Completed:Wait()
+            end
+        end)
+    end
+end
+
+-- top and bottom smoke
+createSmokeStrip(SmokeTop, -40, false)
+createSmokeStrip(SmokeBottom, -40, true)
+
+-- ANIME THUNDER / LIGHTNING EFFECT
+local Flash = Instance.new("Frame")
+Flash.Size = UDim2.new(1, 0, 1, 0)
+Flash.Position = UDim2.new(0, 0, 0, 0)
+Flash.BackgroundColor3 = Color3.new(1, 1, 1)
+Flash.BackgroundTransparency = 1
+Flash.BorderSizePixel = 0
+Flash.ZIndex = 20
+Flash.Parent = PasswordGui
+
+local RedTint = Instance.new("Frame")
+RedTint.Size = UDim2.new(1, 0, 1, 0)
+RedTint.Position = UDim2.new(0, 0, 0, 0)
+RedTint.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+RedTint.BackgroundTransparency = 1
+RedTint.BorderSizePixel = 0
+RedTint.ZIndex = 19
+RedTint.Parent = PasswordGui
+
+-- simple screen shake
+local function screenShake(intensity, duration)
+    local start = tick()
+    local basePos = PassFrame.Position
+    while tick() - start < duration and not passwordAccepted do
+        local offsetX = (math.random() - 0.5) * 2 * intensity
+        local offsetY = (math.random() - 0.5) * 2 * intensity
+        PassFrame.Position = basePos + UDim2.new(0, offsetX, 0, offsetY)
+        task.wait(0.02)
+    end
+    PassFrame.Position = basePos
+end
+
+local function thunderStrike()
+    if passwordAccepted then return end
+
+    local useRed = (math.random() < 0.4)
+    if useRed then
+        RedTint.BackgroundTransparency = 0.6
+        Flash.BackgroundTransparency = 0.85
+    else
+        RedTint.BackgroundTransparency = 1
+        Flash.BackgroundTransparency = 0.3
+    end
+
+    TweenService:Create(
+        Flash,
+        TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        { BackgroundTransparency = 1 }
+    ):Play()
+
+    if useRed then
+        TweenService:Create(
+            RedTint,
+            TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            { BackgroundTransparency = 1 }
+        ):Play()
+    end
+
+    task.spawn(function()
+        screenShake(6, 0.25)
+    end)
+end
+
+-- thunder loop
+task.spawn(function()
+    while not passwordAccepted and PasswordGui.Parent do
+        local waitTime = 2 + math.random() * 4 -- 2-6 seconds
+        task.wait(waitTime)
+        if passwordAccepted or not PasswordGui.Parent then break end
+
+        local bursts = math.random(1, 2)
+        for _ = 1, bursts do
+            thunderStrike()
+            task.wait(0.18 + math.random() * 0.1)
+        end
+    end
+end)
+
+local function acceptPassword()
+    passwordAccepted = true
+    PassStatus.Text = "Gate unlocked."
+
+    local fadeTime = 0.5
+
+    TweenService:Create(
+        PassFrame,
+        TweenInfo.new(fadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        { BackgroundTransparency = 1 }
+    ):Play()
+    TweenService:Create(PassStroke, TweenInfo.new(fadeTime), { Transparency = 1 }):Play()
+    TweenService:Create(InnerGlow, TweenInfo.new(fadeTime), { ImageTransparency = 1 }):Play()
+
+    for _, v in ipairs(PassFrame:GetDescendants()) do
+        if v:IsA("TextLabel") or v:IsA("TextBox") or v:IsA("TextButton") then
+            TweenService:Create(
+                v,
+                TweenInfo.new(fadeTime),
+                { TextTransparency = 1 }
+            ):Play()
+        end
+    end
+
+    local function fadeImages(root)
+        for _, img in ipairs(root:GetDescendants()) do
+            if img:IsA("ImageLabel") then
+                TweenService:Create(
+                    img,
+                    TweenInfo.new(fadeTime),
+                    { ImageTransparency = 1 }
+                ):Play()
+            end
+        end
+    end
+
+    fadeImages(SmokeTop)
+    fadeImages(SmokeBottom)
+
+    TweenService:Create(BG, TweenInfo.new(fadeTime), { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(Vignette, TweenInfo.new(fadeTime), { ImageTransparency = 1 }):Play()
+    TweenService:Create(Flash, TweenInfo.new(fadeTime), { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(RedTint, TweenInfo.new(fadeTime), { BackgroundTransparency = 1 }):Play()
+
+    task.delay(fadeTime + 0.2, function()
+        if PasswordGui then
+            PasswordGui:Destroy()
+        end
+    end)
+end
 
 local function checkPassword()
     local input = tostring(PassBox.Text or "")
-    if input == EXPECTED_PASSWORD then
-        passwordAccepted = true
-        TweenService:Create(
-            PassFrame,
-            TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {BackgroundTransparency = 1}
-        ):Play()
-        TweenService:Create(
-            PassStroke,
-            TweenInfo.new(0.25),
-            {Transparency = 1}
-        ):Play()
-        for _, v in ipairs(PassFrame:GetDescendants()) do
-            if v:IsA("TextLabel") or v:IsA("TextBox") or v:IsA("TextButton") then
-                v.TextTransparency = 1
-            end
-        end
-        task.wait(0.25)
-        PasswordGui:Destroy()
+    if input == "" then
+        PassStatus.Text = "Enter a key first."
+        return
+    end
+
+    PassStatus.Text = "Checking key..."
+    local ok, msg = validateKey(input)
+    if ok then
+        PassStatus.Text = msg or "Key accepted."
+        acceptPassword()
     else
-        PassStatus.Text = "Invalid password."
+        PassStatus.Text = msg or "Wrong key. The storm rejects you."
         TweenService:Create(
             PassBtn,
-            TweenInfo.new(0.15),
-            {BackgroundColor3 = Color3.fromRGB(200, 0, 0)}
+            TweenInfo.new(0.12),
+            { BackgroundColor3 = Color3.fromRGB(220, 0, 0) }
         ):Play()
-        task.delay(0.3, function()
+        task.delay(0.25, function()
             TweenService:Create(
                 PassBtn,
                 TweenInfo.new(0.15),
-                {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}
+                { BackgroundColor3 = Color3.fromRGB(200, 40, 40) }
             ):Play()
         end)
     end
@@ -158,9 +480,21 @@ PassBox.FocusLost:Connect(function(enter)
     end
 end)
 
+-- Allow Enter to submit
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter then
+        if PassBox:IsFocused() then
+            checkPassword()
+        end
+    end
+end)
+
 repeat task.wait(0.1) until passwordAccepted
 
--- Settings
+----------------------------------------------------------------
+-- SETTINGS / REMOTES
+----------------------------------------------------------------
 local SETTINGS_FILE = "Ys2cBript_Settings.json"
 
 local Settings = {
@@ -168,22 +502,29 @@ local Settings = {
     SpeedValue = 16,
     JumpEnabled = false,
     JumpValue = 50,
+
     HitboxEnabled = false,
     HitboxSize = 22,
     HitboxTransparency = 0.65,
+
     AutoUseAll = false,
     AutoUseMelee = false,
-    KillAura = false,
     HitInterval = 0.15,
+
     BarrierRemoved = false,
+
     AutoHealEnabled = false,
     AutoHealHP = 30,
+
     FollowTarget = false,
     FollowSpeed = 45,
     OrbitRadius = 5,
+
     ESPEnabled = false,
-    AutoPipe = false,
     AutoDragCombo = false,
+    AutoProtect = false,
+
+    FarmAllEnabled = false,
 }
 
 local canUseFiles = (writefile and readfile and isfile) and true or false
@@ -191,11 +532,12 @@ local canUseFiles = (writefile and readfile and isfile) and true or false
 local function loadSettings()
     if not canUseFiles then return end
     if not isfile(SETTINGS_FILE) then return end
+
     local ok, data = pcall(readfile, SETTINGS_FILE)
     if not ok or not data or data == "" then return end
-    local decoded
-    ok, decoded = pcall(HttpService.JSONDecode, HttpService, data)
-    if ok and type(decoded) == "table" then
+
+    local ok2, decoded = pcall(HttpService.JSONDecode, HttpService, data)
+    if ok2 and type(decoded) == "table" then
         for k, v in pairs(decoded) do
             if Settings[k] ~= nil then
                 Settings[k] = v
@@ -216,43 +558,55 @@ loadSettings()
 -- Net modules / remotes
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local NetModules = Modules:WaitForChild("Net")
+
 local PipeActivatedRemote = NetModules:FindFirstChild("RE/PipeActivated")
-
 local JaladaDePeloEvent = ReplicatedStorage:FindFirstChild("JALADADEPELOEVENT")
-local PunchEvent       = ReplicatedStorage:FindFirstChild("PUNCHEVENT")
+local PunchEvent = ReplicatedStorage:FindFirstChild("PUNCHEVENT")
+local StompEvent = ReplicatedStorage:FindFirstChild("STOMPEVENT")
+local RequestSurgeryRF = NetModules:FindFirstChild("RF/RequestSurgery")
 
-local tpDelay   = 0.08
-local frontOff  = 0.7
-local upOff     = 2.3
+local tpDelay = 0.08
+local frontOff = 0.7
+local upOff = 2.3
 
---------------------------------------------------
+local function charHasPvpOn(char)
+    return char and char:FindFirstChild("hasPvpOn") ~= nil
+end
+
+-- unified hitsPerSecond
+local hitsPerSecond = (Settings.HitInterval and Settings.HitInterval > 0)
+    and math.clamp(1 / Settings.HitInterval, 1, 50)
+    or 6
+Settings.HitInterval = 1 / hitsPerSecond
+
+----------------------------------------------------------------
 -- RED LOADING SCREEN
---------------------------------------------------
+----------------------------------------------------------------
 local LoadingGui = Instance.new("ScreenGui")
 LoadingGui.Name = "Ys2cBript_Loading"
 LoadingGui.ResetOnSpawn = false
 LoadingGui.Parent = CoreGui
 
-local BG = Instance.new("Frame")
-BG.Size = UDim2.new(1, 0, 1, 0)
-BG.BackgroundColor3 = Color3.fromRGB(5, 0, 0)
-BG.BorderSizePixel = 0
-BG.Parent = LoadingGui
+local BG2 = Instance.new("Frame")
+BG2.Size = UDim2.new(1, 0, 1, 0)
+BG2.BackgroundColor3 = Color3.fromRGB(5, 0, 0)
+BG2.BorderSizePixel = 0
+BG2.Parent = LoadingGui
 
-local Gradient = Instance.new("UIGradient")
-Gradient.Color = ColorSequence.new({
+local Gradient2 = Instance.new("UIGradient")
+Gradient2.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 40, 40)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 0, 0))
 })
-Gradient.Rotation = 45
-Gradient.Parent = BG
+Gradient2.Rotation = 45
+Gradient2.Parent = BG2
 
 local CenterFrame = Instance.new("Frame")
 CenterFrame.Size = UDim2.new(0, 340, 0, 160)
 CenterFrame.Position = UDim2.new(0.5, -170, 0.5, -80)
 CenterFrame.BackgroundColor3 = Color3.fromRGB(15, 0, 0)
 CenterFrame.BorderSizePixel = 0
-CenterFrame.Parent = BG
+CenterFrame.Parent = BG2
 
 local CFCorner = Instance.new("UICorner")
 CFCorner.CornerRadius = UDim.new(0, 14)
@@ -315,19 +669,21 @@ BarFillCorner.Parent = BarFill
 
 task.spawn(function()
     for i = 1, 40 do
-        local goal = {Size = UDim2.new(i/40, 0, 1, 0)}
-        local tw = TweenService:Create(BarFill, TweenInfo.new(0.03, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), goal)
+        local goal = { Size = UDim2.new(i / 40, 0, 1, 0) }
+        local tw = TweenService:Create(
+            BarFill,
+            TweenInfo.new(0.03, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            goal
+        )
         tw:Play()
-        task.wait(0.03)
+        task.wait(0.03 + math.random() * 0.005)
     end
 end)
 
---------------------------------------------------
--- LOAD VERTEX + REMOVE ITS UI
---------------------------------------------------
+-- load vertex silently and then purge its UI
 task.spawn(function()
     pcall(function()
-        loadstring(game:HttpGet("https://raw.smokingscripts.org/vertex.lua"))()
+        loadstring(game:HttpGet('https://raw.smokingscripts.org/vertex.lua'))()
     end)
 end)
 
@@ -340,6 +696,7 @@ task.spawn(function()
         ys2cbript_ui = true,
         Ys2cBript_Reopen = true,
         ys2cbript_reopen = true,
+        Ys2cBript_Password_Anime = true,
     }
 
     local function isSafeRoot(inst)
@@ -348,7 +705,7 @@ task.spawn(function()
         return SAFE_GUIS[n] or SAFE_GUIS[n:lower()]
     end
 
-    for i = 1, 200 do
+    for _ = 1, 200 do
         task.wait(0.1)
         for _, inst in ipairs(cg:GetDescendants()) do
             local n = inst.Name:lower()
@@ -375,7 +732,7 @@ task.spawn(function()
                     local sizeOK = (s.X >= 40 and s.X <= 200 and s.Y >= 40 and s.Y <= 200)
 
                     local cam = Workspace.CurrentCamera
-                    local vp = cam and cam.ViewportSize or Vector2.new(1920,1080)
+                    local vp = cam and cam.ViewportSize or Vector2.new(1920, 1080)
 
                     local nearLeft = pos.X <= 80
                     local nearRight = (pos.X + s.X) >= (vp.X - 80)
@@ -384,10 +741,11 @@ task.spawn(function()
                     local nearCorner = (nearLeft or nearRight) and (nearTop or nearBottom)
 
                     local parentName = inst.Parent and inst.Parent.Name:lower() or ""
+
                     if sizeOK and nearCorner then
                         if n:find("vertex") or n:find("vtx") or n:find("menu") or n:find("hub")
-                        or parentName:find("vertex") or parentName:find("vtx")
-                        or parentName:find("menu") or parentName:find("hub") then
+                            or parentName:find("vertex") or parentName:find("vtx")
+                            or parentName:find("menu") or parentName:find("hub") then
                             inst:Destroy()
                         end
                     end
@@ -398,14 +756,18 @@ task.spawn(function()
 end)
 
 task.wait(1.5)
-local fadeTween = TweenService:Create(BG, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+local fadeTween = TweenService:Create(
+    BG2,
+    TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    { BackgroundTransparency = 1 }
+)
 fadeTween:Play()
 fadeTween.Completed:Wait()
 LoadingGui:Destroy()
 
---------------------------------------------------
--- MAIN RED UI
---------------------------------------------------
+----------------------------------------------------------------
+-- MAIN RED/ANIME UI
+----------------------------------------------------------------
 local MainGui = Instance.new("ScreenGui")
 MainGui.Name = "Ys2cBript_UI"
 MainGui.ResetOnSpawn = false
@@ -423,10 +785,11 @@ MainFrame.Parent = MainGui
 
 MainFrame.Size = UDim2.new(0, 0, 0, 0)
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+
 local openTween = TweenService:Create(
     MainFrame,
     TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-    {Size = UDim2.new(0, 520, 0, 330), Position = UDim2.new(0.5, -260, 0.5, -165)}
+    { Size = UDim2.new(0, 520, 0, 330), Position = UDim2.new(0.5, -260, 0.5, -165) }
 )
 openTween:Play()
 
@@ -488,10 +851,14 @@ CloseCorner.CornerRadius = UDim.new(0, 8)
 CloseCorner.Parent = CloseBtn
 
 CloseBtn.MouseEnter:Connect(function()
-    TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(200, 40, 40)}):Play()
+    TweenService:Create(CloseBtn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+    }):Play()
 end)
 CloseBtn.MouseLeave:Connect(function()
-    TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(60, 0, 0)}):Play()
+    TweenService:Create(CloseBtn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+    }):Play()
 end)
 CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
@@ -525,10 +892,11 @@ ContentStroke.Thickness = 1.5
 ContentStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 ContentStroke.Parent = ContentFrame
 
+-- UI helpers
 local function createTabButton(text, order, color)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -16, 0, 40)
-    btn.Position = UDim2.new(0, 8, 0, 8 + (order-1) * 44)
+    btn.Position = UDim2.new(0, 8, 0, 8 + (order - 1) * 44)
     btn.BackgroundColor3 = Color3.fromRGB(24, 0, 0)
     btn.BorderSizePixel = 0
     btn.Font = Enum.Font.GothamSemibold
@@ -541,24 +909,28 @@ local function createTabButton(text, order, color)
     corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = btn
 
-    local glow = Instance.new("UIStroke")
-    glow.Color = color
-    glow.Thickness = 1.5
-    glow.Enabled = false
-    glow.Parent = btn
+    local glowStroke = Instance.new("UIStroke")
+    glowStroke.Color = color
+    glowStroke.Thickness = 1.5
+    glowStroke.Enabled = false
+    glowStroke.Parent = btn
 
     btn.MouseEnter:Connect(function()
         if not btn:GetAttribute("ActiveTab") then
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(40, 0, 0)}):Play()
+            TweenService:Create(btn, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+            }):Play()
         end
     end)
     btn.MouseLeave:Connect(function()
         if not btn:GetAttribute("ActiveTab") then
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(24, 0, 0)}):Play()
+            TweenService:Create(btn, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(24, 0, 0)
+            }):Play()
         end
     end)
 
-    return btn, glow
+    return btn, glowStroke
 end
 
 local function createTabPage()
@@ -594,7 +966,7 @@ local function createSectionLabel(parent, text)
     lbl.TextSize = 14
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.TextColor3 = Color3.fromRGB(255, 140, 140)
-    lbl.Text = "  " .. text
+    lbl.Text = " " .. text
     lbl.LayoutOrder = 0
     lbl.Parent = parent
 
@@ -642,21 +1014,22 @@ local function createToggle(parent, text, default, callback)
     btnCorner.Parent = btn
 
     local state = default
-    btn.MouseButton1Click:Connect(function()
-        state = not state
+
+    local function setState(v, fromInit)
+        state = v
         btn.Text = state and "ON" or "OFF"
-        TweenService:Create(
-            btn,
-            TweenInfo.new(0.15),
-            {BackgroundColor3 = state and Color3.fromRGB(200, 60, 60) or Color3.fromRGB(80, 0, 0)}
-        ):Play()
-        pcall(callback, state)
-        saveSettings()
+        btn.BackgroundColor3 = state and Color3.fromRGB(200, 60, 60) or Color3.fromRGB(80, 0, 0)
+        pcall(callback, state, fromInit)
+        if not fromInit then
+            saveSettings()
+        end
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        setState(not state)
     end)
 
-    if default then
-        pcall(callback, true)
-    end
+    setState(default, true)
 
     return frame
 end
@@ -678,11 +1051,16 @@ local function createButton(parent, text, callback)
     corner.Parent = btn
 
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(120, 0, 0)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+        }):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(60, 0, 0)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+        }):Play()
     end)
+
     btn.MouseButton1Click:Connect(function()
         pcall(callback)
     end)
@@ -725,8 +1103,7 @@ local function createSlider(parent, text, min, max, default, callback)
     sliderCorner.Parent = sliderBack
 
     local rel = (default - min) / (max - min)
-    if rel < 0 then rel = 0 end
-    if rel > 1 then rel = 1 end
+    rel = math.clamp(rel, 0, 1)
 
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new(rel, 0, 1, 0)
@@ -750,57 +1127,61 @@ local function createSlider(parent, text, min, max, default, callback)
     end
 
     sliderBack.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             setValueFromX(input.Position.X)
         end
     end)
-
     sliderBack.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
-
     UIS.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             setValueFromX(input.Position.X)
         end
     end)
 
     pcall(callback, default)
-
     return frame
 end
 
--- Tabs: Player, Combat, ESP, Misc
+-- TABS
 local PlayerBtn, PlayerGlow = createTabButton("🏃 Player", 1, Color3.fromRGB(220, 80, 80))
 local CombatBtn, CombatGlow = createTabButton("🗡️ Combat", 2, Color3.fromRGB(255, 110, 110))
-local ESPBtn, ESPGlow       = createTabButton("👁️ ESP", 3, Color3.fromRGB(255, 150, 150))
-local MiscBtn, MiscGlow     = createTabButton("⚙️ Misc", 4, Color3.fromRGB(255, 200, 200))
+local ESPBtn, ESPGlow     = createTabButton("👁️ ESP",    3, Color3.fromRGB(255, 150, 150))
+local MiscBtn, MiscGlow   = createTabButton("⚙️ Misc",   4, Color3.fromRGB(255, 200, 200))
+local AuraBtn, AuraGlow   = createTabButton("✨ Aura",   5, Color3.fromRGB(200, 160, 255))
+local FarmBtn, FarmGlow   = createTabButton("🌾 Farm",   6, Color3.fromRGB(255, 220, 180))
 
 local PlayerPage = createTabPage()
 local CombatPage = createTabPage()
-local ESPPage = createTabPage()
-local MiscPage = createTabPage()
+local ESPPage    = createTabPage()
+local MiscPage   = createTabPage()
+local AuraPage   = createTabPage()
+local FarmPage   = createTabPage()
 
 local function setActiveTab(btn, glow)
     for _, b in ipairs(TabButtons:GetChildren()) do
         if b:IsA("TextButton") then
             b:SetAttribute("ActiveTab", false)
-            TweenService:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(24, 0, 0)}):Play()
+            TweenService:Create(b, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(24, 0, 0)
+            }):Play()
         end
     end
+
     for _, g in ipairs(TabButtons:GetDescendants()) do
         if g:IsA("UIStroke") then
             g.Enabled = false
         end
     end
+
     btn:SetAttribute("ActiveTab", true)
-    TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(60, 0, 0)}):Play()
+    TweenService:Create(btn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+    }):Play()
     glow.Enabled = true
 end
 
@@ -809,6 +1190,8 @@ local function showPage(page)
     CombatPage.Visible = false
     ESPPage.Visible = false
     MiscPage.Visible = false
+    AuraPage.Visible = false
+    FarmPage.Visible = false
     page.Visible = true
 end
 
@@ -832,10 +1215,33 @@ MiscBtn.MouseButton1Click:Connect(function()
     showPage(MiscPage)
 end)
 
+AuraBtn.MouseButton1Click:Connect(function()
+    setActiveTab(AuraBtn, AuraGlow)
+    showPage(AuraPage)
+
+    if not AuraPage:GetAttribute("Loaded") then
+        AuraPage:SetAttribute("Loaded", true)
+        task.spawn(function()
+            pcall(function()
+                loadstring(game:HttpGet(
+                    "https://raw.githubusercontent.com/Gazer-Ha/Reimagined/refs/heads/main/FE%20Animation%20editor"
+                ))()
+            end)
+        end)
+    end
+end)
+
+FarmBtn.MouseButton1Click:Connect(function()
+    setActiveTab(FarmBtn, FarmGlow)
+    showPage(FarmPage)
+end)
+
 setActiveTab(PlayerBtn, PlayerGlow)
 showPage(PlayerPage)
 
--- Reopen button
+----------------------------------------------------------------
+-- REOPEN BUTTON
+----------------------------------------------------------------
 local ReopenGui = Instance.new("ScreenGui")
 ReopenGui.Name = "Ys2cBript_Reopen"
 ReopenGui.ResetOnSpawn = false
@@ -865,10 +1271,14 @@ ReopenStroke.Thickness = 1.5
 ReopenStroke.Parent = ReopenBtn
 
 ReopenBtn.MouseEnter:Connect(function()
-    TweenService:Create(ReopenBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(60, 0, 0)}):Play()
+    TweenService:Create(ReopenBtn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+    }):Play()
 end)
 ReopenBtn.MouseLeave:Connect(function()
-    TweenService:Create(ReopenBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(24, 0, 0)}):Play()
+    TweenService:Create(ReopenBtn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(24, 0, 0)
+    }):Play()
 end)
 
 ReopenBtn.MouseButton1Click:Connect(function()
@@ -876,9 +1286,9 @@ ReopenBtn.MouseButton1Click:Connect(function()
     ReopenBtn.Text = MainFrame.Visible and "Close Menu" or "Open Menu"
 end)
 
--------------------------------------------------
+----------------------------------------------------------------
 -- PLAYER TAB
--------------------------------------------------
+----------------------------------------------------------------
 createSectionLabel(PlayerPage, "Movement")
 
 local speedEnabled = Settings.SpeedEnabled
@@ -893,22 +1303,15 @@ local function applyStatsToChar(char)
 
     hum.WalkSpeed = speedEnabled and speedValue or 16
 
-    local function setJump(h, enabled, value)
-        if h:FindFirstChild("UseJumpPower") ~= nil then
-            h.UseJumpPower = false
-        end
-
-        if h.JumpHeight then
-            h.JumpHeight = enabled and (value / 10) or 7.2
-        else
-            if h:FindFirstChild("UseJumpPower") ~= nil then
-                h.UseJumpPower = true
-            end
-            h.JumpPower = enabled and value or 50
-        end
+    if hum:FindFirstChild("UseJumpPower") ~= nil then
+        hum.UseJumpPower = not hum.JumpHeight
     end
 
-    setJump(hum, jumpEnabled, jumpValue)
+    if hum.JumpHeight and not hum.UseJumpPower then
+        hum.JumpHeight = jumpEnabled and (jumpValue / 10) or 7.2
+    else
+        hum.JumpPower = jumpEnabled and jumpValue or 50
+    end
 end
 
 if LP.Character then
@@ -921,7 +1324,7 @@ LP.CharacterAdded:Connect(function(char)
 end)
 
 task.spawn(function()
-    while task.wait(0.2) do
+    while task.wait(0.2 + math.random() * 0.02) do
         local char = LP.Character
         if char and speedEnabled then
             local hum = char:FindFirstChildOfClass("Humanoid")
@@ -960,6 +1363,7 @@ createSlider(PlayerPage, "Jump Power", 50, 300, jumpValue, function(v)
     end
 end).LayoutOrder = jumpToggleFrame.LayoutOrder + 1
 
+-- HITBOX EXPANDER
 createSectionLabel(PlayerPage, "Hitbox Expander")
 
 local hitboxEnabled = Settings.HitboxEnabled
@@ -968,6 +1372,7 @@ local hitboxTransparency = Settings.HitboxTransparency
 
 RunService.Heartbeat:Connect(function()
     if not hitboxEnabled then return end
+
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local hrp = p.Character.HumanoidRootPart
@@ -993,65 +1398,11 @@ createSlider(PlayerPage, "Hitbox Transparency", 0, 100, hitboxTransparency * 100
     Settings.HitboxTransparency = hitboxTransparency
 end)
 
+-- WEAPONS + AUTO USE
 createSectionLabel(PlayerPage, "Weapons")
 
-local autoPipe = Settings.AutoPipe
-
-local function hasPipe()
-    local char = LP.Character
-    if char then
-        for _, c in ipairs(char:GetChildren()) do
-            if c:IsA("Tool") and c.Name == "RustyPipe" then
-                return true
-            end
-        end
-    end
-    for _, c in ipairs(LP.Backpack:GetChildren()) do
-        if c:IsA("Tool") and c.Name == "RustyPipe" then
-            return true
-        end
-    end
-    return false
-end
-
-local function getPipeInWorkspace()
-    for _, inst in ipairs(Workspace:GetDescendants()) do
-        if inst:IsA("Tool") and inst.Name == "RustyPipe" then
-            return inst
-        end
-    end
-end
-
-createToggle(PlayerPage, "Auto RustyPipe (Keep Picking Up 'RustyPipe')", autoPipe, function(v)
-    autoPipe = v
-    Settings.AutoPipe = v
-end)
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if autoPipe and not hasPipe() then
-            local pipe = getPipeInWorkspace()
-            local char = safeChar()
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if pipe and hrp then
-                local oldCFrame = hrp.CFrame
-                local handle = pipe:FindFirstChild("Handle")
-                local targetPart = handle or (pipe:IsA("BasePart") and pipe or nil)
-
-                if targetPart and targetPart:IsDescendantOf(Workspace) then
-                    hrp.CFrame = targetPart.CFrame + Vector3.new(0, 2, 0)
-                    task.wait(0.2)
-                end
-                hrp.CFrame = oldCFrame
-            end
-        end
-    end
-end)
-
-local killAura = Settings.KillAura
 local autoUseAll = Settings.AutoUseAll
 local autoUseMelee = Settings.AutoUseMelee
-local hitInterval = Settings.HitInterval
 
 createToggle(PlayerPage, "Auto Use All Weapons", autoUseAll, function(v)
     autoUseAll = v
@@ -1067,7 +1418,8 @@ local function isMeleeTool(tool)
     local name = tool.Name:lower()
     local meleeWords = {
         "sword","knife","bat","pipe","mop","sign",
-        "fist","punch","club","katana","blade","axe","hammer","crowbar","rustypipe"
+        "fist","punch","club","katana","blade","axe",
+        "hammer","crowbar","rustypipe"
     }
     for _, w in ipairs(meleeWords) do
         if name:find(w) then
@@ -1087,12 +1439,15 @@ local function firePipeRemoteIfNeeded(tool)
 end
 
 task.spawn(function()
-    while task.wait(hitInterval) do
+    while true do
+        local delay = (hitsPerSecond > 0) and (1 / hitsPerSecond) or 0.2
+        delay = delay + math.random() * 0.01
+
         local char = LP.Character
         if char then
             for _, tool in ipairs(char:GetChildren()) do
                 if tool:IsA("Tool") then
-                    if autoUseAll or (autoUseMelee and isMeleeTool(tool)) or killAura then
+                    if autoUseAll or (autoUseMelee and isMeleeTool(tool)) then
                         pcall(function()
                             tool:Activate()
                         end)
@@ -1101,20 +1456,23 @@ task.spawn(function()
                 end
             end
         end
+
+        task.wait(delay)
     end
 end)
 
+-- WORLD TOOLS / BARRIER REMOVE
 createSectionLabel(PlayerPage, "World Tools")
 
 local barrierRemoved = Settings.BarrierRemoved
 local storedWalls = {}
 
 local WallInfoLabel = Instance.new("TextLabel")
-WallInfoLabel.Size = UDim2.new(1,-20,0,24)
+WallInfoLabel.Size = UDim2.new(1, -20, 0, 24)
 WallInfoLabel.BackgroundTransparency = 1
 WallInfoLabel.Font = Enum.Font.Gotham
 WallInfoLabel.TextSize = 13
-WallInfoLabel.TextColor3 = Color3.fromRGB(255,150,150)
+WallInfoLabel.TextColor3 = Color3.fromRGB(255, 150, 150)
 WallInfoLabel.Text = "Walls found: 0"
 WallInfoLabel.Parent = PlayerPage
 
@@ -1161,83 +1519,104 @@ createToggle(PlayerPage, "Remove Barriers / Walls", barrierRemoved, function(v)
 end)
 
 task.spawn(function()
-    while task.wait(5) do
+    while task.wait(5 + math.random() * 0.3) do
         if barrierRemoved then
             toggleBarriers(true)
         end
     end
 end)
 
+-- SURVIVABILITY / AUTO HEAL
 createSectionLabel(PlayerPage, "Survivability")
 
 local autoHealEnabled = Settings.AutoHealEnabled
 local healHPThreshold = Settings.AutoHealHP
+
 local healingInProgress = false
 local lastSafeCFrame = nil
+local lastHealTime = 0
+local lastHP = math.huge
+
+local HEAL_COOLDOWN = 5
 
 local DOCTOR_CFRAME = CFrame.new(
     531.828796, 11.9497728, -205.658417,
-    0.492447019, -7.92819606e-08, -0.870342433,
-    4.87593717e-08, 1, -6.35043804e-08,
-    0.870342433, -1.11648095e-08, 0.492447019
+    0.492447019, 0, -0.870342433,
+    0, 1, 0,
+    0.870342433, 0, 0.492447019
 )
 
-local RequestSurgeryRF = NetModules:FindFirstChild("RF/RequestSurgery")
-
-local function isRagdolled(char)
-    if not char then return false end
-    local rag = char:FindFirstChild("RagdollTrigger")
-    return rag ~= nil
+local function forceNoCollide(char)
+    for _, p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.CanCollide = false
+            p.AssemblyLinearVelocity = Vector3.zero
+        end
+    end
 end
 
-local function doAutoHeal()
-    if healingInProgress then return end
+local function emergencyHeal()
+    if healingInProgress or not autoHealEnabled then return end
+    if tick() - lastHealTime < HEAL_COOLDOWN then return end
+
     healingInProgress = true
+    lastHealTime = tick()
 
     local char = safeChar()
     local hum = char:FindFirstChildOfClass("Humanoid")
     local hrp = char:FindFirstChild("HumanoidRootPart")
-
     if not hum or not hrp or not RequestSurgeryRF then
+        healingInProgress = false
+        return
+    end
+    if hum.Health <= 0 then
         healingInProgress = false
         return
     end
 
     lastSafeCFrame = hrp.CFrame
-    hrp.CFrame = DOCTOR_CFRAME + Vector3.new(0, 3, 0)
 
-    local maxHealth = hum.MaxHealth
-    local t0 = os.clock()
-    local timeout = 15
+    for _ = 1, 2 do
+        hrp.CFrame = DOCTOR_CFRAME + Vector3.new(0, 4, 0)
+        task.wait(0.05 + math.random() * 0.01)
+    end
 
-    while hum.Health < maxHealth and os.clock() - t0 < timeout do
-        for i = 1, 3 do
+    forceNoCollide(char)
+    hum.Sit = false
+
+    local maxHP = hum.MaxHealth
+    local t0 = tick()
+    while hum.Health > 0 and hum.Health < maxHP and tick() - t0 < 8 do
+        for _ = 1, 4 do
             pcall(function()
                 RequestSurgeryRF:InvokeServer()
             end)
         end
-        task.wait(0.2)
+        hrp.CFrame = DOCTOR_CFRAME + Vector3.new(0, 4, 0)
+        task.wait(0.2 + math.random() * 0.02)
     end
 
-    if hum.Health > 0 and lastSafeCFrame then
+    if hum.Health > math.max(healHPThreshold + 15, healHPThreshold * 1.3) and lastSafeCFrame then
         hrp.CFrame = lastSafeCFrame
     end
 
     healingInProgress = false
 end
 
-local ahToggle = createToggle(PlayerPage, "Auto Heal At Doctor", autoHealEnabled, function(v)
+local ahToggle = createToggle(PlayerPage, "Auto Heal (Emergency Safe)", autoHealEnabled, function(v)
     autoHealEnabled = v
     Settings.AutoHealEnabled = v
 end)
 
-createSlider(PlayerPage, "Auto Heal HP", 5, 60, healHPThreshold, function(v)
+createSlider(PlayerPage, "Auto Heal HP", 10, 70, healHPThreshold, function(v)
     healHPThreshold = v
     Settings.AutoHealHP = v
 end).LayoutOrder = ahToggle.LayoutOrder + 1
 
 task.spawn(function()
-    while task.wait(0.2) do
+    lastHP = math.huge
+
+    while task.wait(0.08 + math.random() * 0.01) do
         if not autoHealEnabled or healingInProgress then
             continue
         end
@@ -1248,18 +1627,27 @@ task.spawn(function()
             continue
         end
 
-        if hum.Health > 0 and hum.Health <= healHPThreshold and isRagdolled(char) then
-            doAutoHeal()
+        local hp = hum.Health
+        local delta = lastHP - hp
+        lastHP = hp
+
+        if hp <= 0 then
+            continue
+        end
+
+        if (hp <= healHPThreshold) or (delta >= 20 and hp <= healHPThreshold + 15) then
+            emergencyHeal()
         end
     end
 end)
 
--------------------------------------------------------
+----------------------------------------------------------------
 -- COMBAT TAB
--------------------------------------------------------
+----------------------------------------------------------------
 createSectionLabel(CombatPage, "Targets & Modes")
 
 local selectedTarget = nil
+local protectedPlayer = nil
 local playerNames = {}
 
 local function rebuildPlayerNames()
@@ -1275,6 +1663,7 @@ rebuildPlayerNames()
 Players.PlayerAdded:Connect(rebuildPlayerNames)
 Players.PlayerRemoving:Connect(rebuildPlayerNames)
 
+-- Kill / Drag target dropdown
 local DropdownFrame = Instance.new("Frame")
 DropdownFrame.Size = UDim2.new(1, -16, 0, 120)
 DropdownFrame.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
@@ -1321,7 +1710,7 @@ DropdownList.BorderSizePixel = 0
 DropdownList.Visible = false
 DropdownList.ClipsDescendants = true
 DropdownList.ScrollBarThickness = 4
-DropdownList.CanvasSize = UDim2.new(0,0,0,0)
+DropdownList.CanvasSize = UDim2.new(0, 0, 0, 0)
 DropdownList.Parent = DropdownFrame
 
 local DLCorner = Instance.new("UICorner")
@@ -1345,7 +1734,6 @@ local function refreshDropdown()
     end
 
     rebuildPlayerNames()
-
     for _, name in ipairs(playerNames) do
         local opt = Instance.new("TextButton")
         opt.Size = UDim2.new(1, 0, 0, 24)
@@ -1385,9 +1773,234 @@ createButton(CombatPage, "Refresh Player List", function()
     refreshDropdown()
 end)
 
--------------------------------------------------------
--- PLAYER INFO PANEL (extended)
--------------------------------------------------------
+-- PROTECTED PLAYER DROPDOWN
+local ProtectFrame = Instance.new("Frame")
+ProtectFrame.Size = UDim2.new(1, -16, 0, 120)
+ProtectFrame.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+ProtectFrame.BorderSizePixel = 0
+ProtectFrame.LayoutOrder = 2
+ProtectFrame.Parent = CombatPage
+
+local ProtectCorner = Instance.new("UICorner")
+ProtectCorner.CornerRadius = UDim.new(0, 10)
+ProtectCorner.Parent = ProtectFrame
+
+local ProtectLabel = Instance.new("TextLabel")
+ProtectLabel.Size = UDim2.new(1, -10, 0, 22)
+ProtectLabel.Position = UDim2.new(0, 10, 0, 4)
+ProtectLabel.BackgroundTransparency = 1
+ProtectLabel.Font = Enum.Font.Gotham
+ProtectLabel.TextSize = 14
+ProtectLabel.TextXAlignment = Enum.TextXAlignment.Left
+ProtectLabel.TextColor3 = Color3.fromRGB(255, 220, 220)
+ProtectLabel.Text = "Protected Player"
+ProtectLabel.Parent = ProtectFrame
+
+local ProtectButton = Instance.new("TextButton")
+ProtectButton.Size = UDim2.new(1, -20, 0, 26)
+ProtectButton.Position = UDim2.new(0, 10, 0, 32)
+ProtectButton.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+ProtectButton.BorderSizePixel = 0
+ProtectButton.Font = Enum.Font.Gotham
+ProtectButton.TextSize = 14
+ProtectButton.TextColor3 = Color3.fromRGB(255, 230, 230)
+ProtectButton.TextXAlignment = Enum.TextXAlignment.Left
+ProtectButton.Text = " None"
+ProtectButton.Parent = ProtectFrame
+
+local ProtectBtnCorner = Instance.new("UICorner")
+ProtectBtnCorner.CornerRadius = UDim.new(0, 6)
+ProtectBtnCorner.Parent = ProtectButton
+
+local ProtectList = Instance.new("ScrollingFrame")
+ProtectList.Size = UDim2.new(1, -20, 0, 65)
+ProtectList.Position = UDim2.new(0, 10, 0, 62)
+ProtectList.BackgroundColor3 = Color3.fromRGB(16, 0, 0)
+ProtectList.BorderSizePixel = 0
+ProtectList.Visible = false
+ProtectList.ClipsDescendants = true
+ProtectList.ScrollBarThickness = 4
+ProtectList.CanvasSize = UDim2.new(0, 0, 0, 0)
+ProtectList.Parent = ProtectFrame
+
+local PLCorner = Instance.new("UICorner")
+PLCorner.CornerRadius = UDim.new(0, 6)
+PLCorner.Parent = ProtectList
+
+local PLLayout = Instance.new("UIListLayout")
+PLLayout.FillDirection = Enum.FillDirection.Vertical
+PLLayout.SortOrder = Enum.SortOrder.LayoutOrder
+PLLayout.Parent = ProtectList
+
+PLLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ProtectList.CanvasSize = UDim2.new(0, 0, 0, PLLayout.AbsoluteContentSize.Y)
+end)
+
+local protectChatConn
+
+local function disconnectProtectChat()
+    if protectChatConn then
+        protectChatConn:Disconnect()
+        protectChatConn = nil
+    end
+end
+
+local function hookProtectChat()
+    disconnectProtectChat()
+    if not protectedPlayer then return end
+
+    local plr = Players:FindFirstChild(protectedPlayer)
+    if not plr then return end
+
+    protectChatConn = plr.Chatted:Connect(function(msg)
+        if type(msg) ~= "string" then return end
+        local rawMsg = msg
+        local lowerMsg = string.lower(rawMsg)
+
+        if lowerMsg == "/start" then
+            autoProtect = true
+            Settings.AutoProtect = true
+            saveSettings()
+        elseif lowerMsg == "/stop" then
+            autoProtect = false
+            Settings.AutoProtect = false
+            forcedProtectTargetName = nil
+            saveSettings()
+        elseif lowerMsg:sub(1, 8) == "/attack_" then
+            local userPart = rawMsg:sub(9)
+            userPart = userPart:gsub("%s+", "")
+            if userPart == "" then
+                forcedProtectTargetName = nil
+                return
+            end
+
+            local resolved = nil
+            for _, p in ipairs(Players:GetPlayers()) do
+                if string.lower(p.Name) == string.lower(userPart) then
+                    resolved = p
+                    break
+                end
+            end
+            if not resolved then
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if string.lower(p.DisplayName) == string.lower(userPart) then
+                        resolved = p
+                        break
+                    end
+                end
+            end
+
+            if resolved then
+                forcedProtectTargetName = resolved.Name
+            else
+                forcedProtectTargetName = nil
+            end
+        end
+    end)
+end
+
+local function refreshProtectDropdown()
+    for _, c in ipairs(ProtectList:GetChildren()) do
+        if c:IsA("TextButton") then
+            c:Destroy()
+        end
+    end
+
+    rebuildPlayerNames()
+    for _, name in ipairs(playerNames) do
+        local opt = Instance.new("TextButton")
+        opt.Size = UDim2.new(1, 0, 0, 24)
+        opt.BackgroundColor3 = Color3.fromRGB(22, 0, 0)
+        opt.BorderSizePixel = 0
+        opt.Font = Enum.Font.Gotham
+        opt.TextSize = 14
+        opt.TextColor3 = Color3.fromRGB(255, 220, 220)
+        opt.TextXAlignment = Enum.TextXAlignment.Left
+        opt.Text = " " .. name
+        opt.Parent = ProtectList
+
+        opt.MouseEnter:Connect(function()
+            opt.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+        end)
+        opt.MouseLeave:Connect(function()
+            opt.BackgroundColor3 = Color3.fromRGB(22, 0, 0)
+        end)
+        opt.MouseButton1Click:Connect(function()
+            protectedPlayer = name
+            ProtectButton.Text = " " .. name
+            ProtectList.Visible = false
+            forcedProtectTargetName = nil
+            hookProtectChat()
+        end)
+    end
+end
+
+ProtectButton.MouseButton1Click:Connect(function()
+    if ProtectList.Visible then
+        ProtectList.Visible = false
+    else
+        refreshProtectDropdown()
+        ProtectList.Visible = true
+    end
+end)
+
+local function getNearestEnemyToProtected(maxDist)
+    if not protectedPlayer then return nil end
+    local protPlr = Players:FindFirstChild(protectedPlayer)
+    if not protPlr or not protPlr.Character then return nil end
+
+    local protHRP = protPlr.Character:FindFirstChild("HumanoidRootPart")
+    if not protHRP then return nil end
+
+    local nearest, nearestD = nil, maxDist or 40
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and p ~= protPlr and p.Character then
+            local char = p.Character
+            if charHasPvpOn(char) then
+                local th = char:FindFirstChild("HumanoidRootPart")
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if th and hum and hum.Health > 0 then
+                    local d = (th.Position - protHRP.Position).Magnitude
+                    if d < nearestD then
+                        nearestD = d
+                        nearest = p
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local autoProtect = Settings.AutoProtect
+local forcedProtectTargetName = nil
+
+task.spawn(function()
+    while true do
+        task.wait(0.2 + math.random() * 0.02)
+        if not autoProtect or not protectedPlayer then
+            continue
+        end
+
+        local enemy
+        if forcedProtectTargetName then
+            local p = Players:FindFirstChild(forcedProtectTargetName)
+            if p and p.Character and p ~= LP and charHasPvpOn(p.Character) then
+                enemy = p
+            else
+                enemy = getNearestEnemyToProtected(40)
+            end
+        else
+            enemy = getNearestEnemyToProtected(40)
+        end
+
+        if enemy then
+            selectedTarget = enemy.Name
+        end
+    end
+end)
+
+-- PLAYER INFO PANEL
 createSectionLabel(CombatPage, "Player Info")
 
 local InfoFrame = Instance.new("Frame")
@@ -1441,20 +2054,23 @@ InfoBtnCorner.CornerRadius = UDim.new(0, 6)
 InfoBtnCorner.Parent = InfoButton
 
 InfoButton.MouseEnter:Connect(function()
-    TweenService:Create(InfoButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(140, 0, 0)}):Play()
+    TweenService:Create(InfoButton, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(140, 0, 0)
+    }):Play()
 end)
 InfoButton.MouseLeave:Connect(function()
-    TweenService:Create(InfoButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(80, 0, 0)}):Play()
+    TweenService:Create(InfoButton, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+    }):Play()
 end)
 
 local httpAvailable = (syn and syn.request) or (http and http.request) or http_request or request
+
 local function httpRequest(opts)
     local f = (syn and syn.request) or (http and http.request) or http_request or request
     if not f then return nil end
     local ok, res = pcall(f, opts)
-    if not ok or not res or res.StatusCode ~= 200 then
-        return nil
-    end
+    if not ok or not res or res.StatusCode ~= 200 then return nil end
     return res.Body
 end
 
@@ -1481,11 +2097,17 @@ local function formatShortDate(iso)
     return string.format("%s-%s-%s", y, m, d)
 end
 
+local function isRagdolled(char)
+    if not char then return false end
+    return char:FindFirstChild("RagdollTrigger") ~= nil
+end
+
 local function refreshTargetInfo()
     if not selectedTarget then
         InfoLabel.Text = "No target selected."
         InfoBody.Text = ""
         InfoLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+
         task.delay(1.5, function()
             InfoLabel.Text = "Select a target above, then press 'Refresh Info'."
             InfoLabel.TextColor3 = Color3.fromRGB(255, 210, 210)
@@ -1567,14 +2189,12 @@ local function refreshTargetInfo()
 
     InfoLabel.Text = "In-Game & Profile Info:"
     InfoLabel.TextColor3 = Color3.fromRGB(255, 210, 210)
-    InfoBody.Text = line1 .. "\n" .. line2 .. "\n" .. line3 .. "\n" ..
-                    line4 .. "\n" .. line5 .. "\n" .. line6 .. "\n" .. line7
+    InfoBody.Text = line1 .. "\n" .. line2 .. "\n" .. line3 .. "\n" .. line4 .. "\n" .. line5 .. "\n" .. line6 .. "\n" .. line7
 
     if httpAvailable then
         task.spawn(function()
             local prof = getPublicProfileInfo(target.UserId)
             if not prof then return end
-
             local createdStr = formatShortDate(prof.created)
             local desc = prof.description
             if desc ~= "" then
@@ -1585,13 +2205,7 @@ local function refreshTargetInfo()
             else
                 desc = "(no description)"
             end
-
-            local extra = string.format(
-                "\n\nProfile Created: %s\nBio: %s",
-                createdStr,
-                desc
-            )
-
+            local extra = string.format("\n\nProfile Created: %s\nBio: %s", createdStr, desc)
             if selectedTarget == target.Name then
                 InfoBody.Text = InfoBody.Text .. extra
             end
@@ -1601,31 +2215,60 @@ end
 
 InfoButton.MouseButton1Click:Connect(refreshTargetInfo)
 
--------------------------------------------------------
--- COMBAT MODES + DRAG COMBO (FOLLOW => AUTO DRAG)
--------------------------------------------------------
+-- COMBAT MODES + DRAG COMBO
 createSectionLabel(CombatPage, "Combat Modes")
 
 local followTarget = Settings.FollowTarget
 local followSpeed = Settings.FollowSpeed
 local orbitRadius = Settings.OrbitRadius
 
-createToggle(CombatPage, "Kill Aura (Auto Attack)", killAura, function(v)
-    killAura = v
-    Settings.KillAura = v
-end)
-
--- Auto-drag combo tied into follow toggle
 local autoDragCombo = Settings.AutoDragCombo
 local punching = false
 
+createSlider(CombatPage, "Hit Speed (hits/sec)", 1, 50, math.floor(hitsPerSecond), function(v)
+    hitsPerSecond = math.clamp(v, 1, 50)
+    Settings.HitInterval = 1 / hitsPerSecond
+end)
+
+local function tryStompOnCharacter(char)
+    if not StompEvent or not char then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local stompable = char:FindFirstChild("canBeStomped")
+    local carried = char:FindFirstChild("BeingCarried")
+    local hasPvp = charHasPvpOn(char)
+
+    if not hum or not root then return false end
+    if hum.Health < 1 or hum.Health > 5 then return false end
+    if not stompable or carried or not hasPvp then return false end
+
+    local myChar = safeChar()
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return false end
+
+    myRoot.AssemblyLinearVelocity = Vector3.zero
+    myRoot.AssemblyAngularVelocity = Vector3.zero
+
+    local targetHead = char:FindFirstChild("Head") or root
+    local targetPos = targetHead.Position + Vector3.new(0, 3, 0)
+    myRoot.CFrame = CFrame.new(targetPos)
+
+    pcall(function()
+        StompEvent:FireServer()
+    end)
+
+    return true
+end
+
 local function tryDragBurst()
     if not JaladaDePeloEvent then return end
-    for i = 1, 4 do
+    for _ = 1, 4 do
         pcall(function()
             JaladaDePeloEvent:FireServer()
         end)
-        task.wait(0.08)
+        local delay = (hitsPerSecond > 10) and 0.04 or 0.08
+        delay = delay + math.random() * 0.01
+        task.wait(delay)
     end
 end
 
@@ -1636,12 +2279,26 @@ local function dragComboLoop()
             continue
         end
 
-        tryDragBurst()
+        local targetPlr = Players:FindFirstChild(selectedTarget)
+        local tChar = targetPlr and targetPlr.Character
+        local tHum = tChar and tChar:FindFirstChildOfClass("Humanoid")
 
+        if not (tChar and charHasPvpOn(tChar) and tHum and tHum.Health > 0) then
+            task.wait(0.3)
+            continue
+        end
+
+        tryDragBurst()
         punching = true
+
         local t0 = tick()
         while autoDragCombo and tick() - t0 < 3 do
-            task.wait(0.05)
+            if tChar and tHum and tHum.Health > 0 then
+                tryStompOnCharacter(tChar)
+            end
+            local delay = (hitsPerSecond > 0) and (1 / hitsPerSecond) or 0.05
+            delay = delay + math.random() * 0.01
+            task.wait(delay)
         end
 
         if autoDragCombo then
@@ -1650,11 +2307,16 @@ local function dragComboLoop()
 
         local t1 = tick()
         while autoDragCombo and tick() - t1 < 4 do
-            task.wait(0.05)
+            if tChar and tHum and tHum.Health > 0 then
+                tryStompOnCharacter(tChar)
+            end
+            local delay = (hitsPerSecond > 0) and (1 / hitsPerSecond) or 0.05
+            delay = delay + math.random() * 0.01
+            task.wait(delay)
         end
 
         punching = false
-        task.wait(0.3)
+        task.wait(0.3 + math.random() * 0.02)
     end
 end
 
@@ -1662,7 +2324,6 @@ local followToggle = createToggle(CombatPage, "Follow Kill Target (noclip + orbi
     followTarget = v
     Settings.FollowTarget = v
 
-    -- Tie drag combo to follow target
     if v and selectedTarget then
         autoDragCombo = true
         Settings.AutoDragCombo = true
@@ -1684,11 +2345,6 @@ createSlider(CombatPage, "Orbit Radius", 3, 15, orbitRadius, function(v)
     Settings.OrbitRadius = v
 end)
 
-createSlider(CombatPage, "Hit Speed (ms between hits)", 25, 400, hitInterval * 1000, function(v)
-    hitInterval = math.clamp(v / 1000, 0.025, 1.5)
-    Settings.HitInterval = hitInterval
-end)
-
 task.spawn(function()
     while true do
         if punching and PunchEvent then
@@ -1696,62 +2352,58 @@ task.spawn(function()
                 PunchEvent:FireServer(1)
             end)
         end
-        task.wait(0.09)
+
+        local delay = (hitsPerSecond > 0) and (1 / hitsPerSecond) or 0.09
+        delay = delay + math.random() * 0.01
+        task.wait(delay)
     end
 end)
 
--- Continuous TP front while autoDragCombo on (used by follow as well)
 task.spawn(function()
     while true do
         if autoDragCombo and selectedTarget then
             local target = Players:FindFirstChild(selectedTarget)
-            if target and target.Character then
-                local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
+            local char = target and target.Character
+            local tHum = char and char:FindFirstChildOfClass("Humanoid")
+            local hasPvp = charHasPvpOn(char)
+
+            if char and hasPvp and tHum and tHum.Health > 0 then
+                local tHRP = char:FindFirstChild("HumanoidRootPart")
                 if tHRP then
-                    local char = LP.Character
-                    if not char or not char:FindFirstChild("HumanoidRootPart") then
-                        char = safeChar()
-                    end
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    local myChar = LP.Character or safeChar()
+                    local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
                     if hrp then
-                        hrp.CFrame = tHRP.CFrame * CFrame.new(0, upOff, frontOff)
+                        hrp.CFrame = tHRP.CFrame * CFrame.new(0, upOff + (math.random() * 0.05), frontOff)
                     end
                 end
             end
         end
-        task.wait(tpDelay)
+        task.wait(tpDelay + math.random() * 0.01)
     end
 end)
 
--- Manual toggle kept for UI (still works, but follow will also control it)
 createToggle(CombatPage, "Auto Drag Combo (TP front stick)", autoDragCombo, function(v)
     autoDragCombo = v
     Settings.AutoDragCombo = v
     if v then
+        Settings.FarmAllEnabled = false
         task.spawn(dragComboLoop)
     else
         punching = false
     end
 end)
 
+local protectToggle = createToggle(CombatPage, "Auto Protect Protected Player", autoProtect, function(v)
+    autoProtect = v
+    Settings.AutoProtect = v
+    saveSettings()
+end)
+
 RunService.Heartbeat:Connect(function(dt)
     local char = LP.Character
     if not char then return end
 
-    local hum = char:FindFirstChildOfClass("Humanoid")
     local hrp = char:FindFirstChild("HumanoidRootPart")
-
-    if killAura and char then
-        for _, tool in ipairs(char:GetChildren()) do
-            if tool:IsA("Tool") and isMeleeTool(tool) then
-                pcall(function()
-                    tool:Activate()
-                end)
-                firePipeRemoteIfNeeded(tool)
-            end
-        end
-    end
-
     if followTarget and selectedTarget and hrp then
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
@@ -1760,11 +2412,14 @@ RunService.Heartbeat:Connect(function(dt)
         end
 
         local targetPlayer = Players:FindFirstChild(selectedTarget)
-        if targetPlayer and targetPlayer.Character then
-            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local tChar = targetPlayer and targetPlayer.Character
+        local tHum = tChar and tChar:FindFirstChildOfClass("Humanoid")
+
+        if tChar and charHasPvpOn(tChar) and tHum and tHum.Health > 0 then
+            local targetHRP = tChar:FindFirstChild("HumanoidRootPart")
             if targetHRP then
                 local t = tick()
-                local angle = t % (2*math.pi)
+                local angle = t % (2 * math.pi)
                 local offset = Vector3.new(
                     math.cos(angle) * orbitRadius,
                     0,
@@ -1773,6 +2428,7 @@ RunService.Heartbeat:Connect(function(dt)
 
                 local groundY = math.max(targetHRP.Position.Y - 3, hrp.Position.Y - 10)
                 local desiredY = math.max(groundY, hrp.Position.Y - 2)
+
                 local desiredPos = Vector3.new(
                     targetHRP.Position.X,
                     desiredY,
@@ -1790,9 +2446,9 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
---------------------------------------------------
+----------------------------------------------------------------
 -- ESP TAB
---------------------------------------------------
+----------------------------------------------------------------
 createSectionLabel(ESPPage, "ESP")
 
 local espEnabled = Settings.ESPEnabled
@@ -1865,9 +2521,9 @@ createToggle(ESPPage, "Player ESP", espEnabled, function(v)
     end
 end)
 
---------------------------------------------------
+----------------------------------------------------------------
 -- MISC TAB
---------------------------------------------------
+----------------------------------------------------------------
 createSectionLabel(MiscPage, "Client Tools")
 
 createButton(MiscPage, "Rejoin Same Server", function()
@@ -1895,7 +2551,7 @@ TimeLabel.Parent = MiscPage
 task.spawn(function()
     while true do
         local diff = os.time() - sessionStart
-        local mins = math.floor(diff/60)
+        local mins = math.floor(diff / 60)
         local secs = diff % 60
         TimeLabel.Text = string.format("Session: %dm %ds", mins, secs)
         task.wait(1)
@@ -1923,6 +2579,100 @@ createToggle(MiscPage, "Hide Roblox Chat UI", false, function(v)
         game.StarterGui:SetCore("ChatActive", not v)
         game.StarterGui:SetCore("TopbarEnabled", not v)
     end)
+end)
+
+----------------------------------------------------------------
+-- FARM TAB
+----------------------------------------------------------------
+createSectionLabel(FarmPage, "Farm All")
+
+local farmAllEnabled = Settings.FarmAllEnabled
+
+local function getNearestPvpOnEnemy(maxDist)
+    local char = LP.Character
+    local myHRP = char and char:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
+    local nearest, bestD = nil, maxDist or 100
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character then
+            local c = p.Character
+            if charHasPvpOn(c) then
+                local hum = c:FindFirstChildOfClass("Humanoid")
+                local hrp = c:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    local d = (hrp.Position - myHRP.Position).Magnitude
+                    if d < bestD then
+                        bestD = d
+                        nearest = p
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function farmAllLoop()
+    while farmAllEnabled do
+        autoDragCombo = false
+        Settings.AutoDragCombo = false
+        punching = true
+
+        local target = getNearestPvpOnEnemy(120)
+        if not target then
+            task.wait(0.4)
+            continue
+        end
+
+        local tChar = target.Character
+        local hum = tChar and tChar:FindFirstChildOfClass("Humanoid")
+        local hrp = tChar and tChar:FindFirstChild("HumanoidRootPart")
+
+        if not (tChar and hum and hum.Health > 0 and hrp and charHasPvpOn(tChar)) then
+            task.wait(0.2)
+            continue
+        end
+
+        local startTime = tick()
+        while farmAllEnabled and tChar and hum and hum.Health > 0 and charHasPvpOn(tChar) do
+            local myChar = LP.Character or safeChar()
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if myHRP and hrp then
+                myHRP.CFrame = hrp.CFrame * CFrame.new(0, upOff, frontOff)
+            end
+
+            if PunchEvent then
+                pcall(function()
+                    PunchEvent:FireServer(1)
+                end)
+            end
+            tryStompOnCharacter(tChar)
+
+            local delay = (hitsPerSecond > 0) and (1 / hitsPerSecond) or 0.09
+            delay = delay + math.random() * 0.01
+            task.wait(delay)
+
+            if tick() - startTime > 12 then
+                break
+            end
+        end
+
+        task.wait(0.2)
+    end
+    punching = false
+end
+
+createToggle(FarmPage, "Farm All Players (PvP On)", farmAllEnabled, function(v)
+    farmAllEnabled = v
+    Settings.FarmAllEnabled = v
+
+    if v then
+        autoDragCombo = false
+        Settings.AutoDragCombo = false
+        punching = false
+        task.spawn(farmAllLoop)
+    end
 end)
 
 -- Final save
