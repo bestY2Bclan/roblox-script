@@ -3,7 +3,8 @@ Ys2cBript - Premium Hub (Red Anime Theme)
 Advanced UI + Smoke/Thunder Password Gate + Loading Screen +
 Fixed Jump + Wall Remover + Auto Heal + Combat / ESP / Farm
 
-Key: via password gate (Run / Pastebin-valid)
+Key: from Pastebin
+Pastebin: https://pastebin.com/raw/i1ZSqKcn
 Discord: https://discord.gg/KWKyYSKFhP
 ===============================================================]]
 
@@ -30,7 +31,6 @@ end
 -- KEY / PASSWORD GATE (ANIME SMOKE + THUNDER)
 ----------------------------------------------------------------
 
-local EXPECTED_PASSWORD = "Run" -- fallback local key
 local KEY_URL = "https://pastebin.com/raw/i1ZSqKcn"
 local DISCORD_INVITE = "https://discord.gg/KWKyYSKFhP"
 
@@ -51,37 +51,26 @@ local function copyToClipboard(text)
     return ok
 end
 
--- OPTIONAL: remote key validation
--- Adjust this based on the format of your Pastebin.
+-- KEY VALIDATION: ONLY Pastebin
 local function validateKey(inputKey)
-    -- if local only:
-    -- return (inputKey == EXPECTED_PASSWORD), "Invalid key."
-
-    -- Hybrid: accept local "Run" OR remote list.
-    if inputKey == EXPECTED_PASSWORD then
-        return true, "Key accepted (local)."
-    end
-
     local ok, body = pcall(game.HttpGet, game, KEY_URL)
     if not ok or not body or body == "" then
         return false, "Key server error. Try again."
     end
 
-    -- EXAMPLE handling: assume each key is in a new line.
-    -- Modify if your paste is JSON or another format.
-    local found = false
+    inputKey = tostring(inputKey or ""):gsub("%s+", "")
+    if inputKey == "" then
+        return false, "Enter a key first."
+    end
+
     for line in string.gmatch(body, "[^\r\n]+") do
-        if line == inputKey then
-            found = true
-            break
+        local trimmed = line:gsub("%s+", "")
+        if trimmed ~= "" and trimmed == inputKey then
+            return true, "Key accepted."
         end
     end
 
-    if found then
-        return true, "Key accepted."
-    else
-        return false, "Invalid key. Get a valid key from the Discord."
-    end
+    return false, "Invalid key. Get a valid key from the Discord."
 end
 
 -- ROOT GUI + BACKGROUND
@@ -110,7 +99,7 @@ local Vignette = Instance.new("ImageLabel")
 Vignette.Size = UDim2.new(1.2, 0, 1.2, 0)
 Vignette.Position = UDim2.new(-0.1, 0, -0.1, 0)
 Vignette.BackgroundTransparency = 1
-Vignette.Image = "rbxassetid://4576475444" -- generic circular gradient
+Vignette.Image = "rbxassetid://4576475444"
 Vignette.ImageColor3 = Color3.new(0, 0, 0)
 Vignette.ImageTransparency = 0.25
 Vignette.ZIndex = 0
@@ -252,7 +241,7 @@ DiscordBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- SMOKE BANDS (TOP + BOTTOM, FULL-SCREEN STYLE)
+-- SMOKE BANDS (TOP + BOTTOM)
 local SmokeTop = Instance.new("Frame")
 SmokeTop.Name = "SmokeTop"
 SmokeTop.Size = UDim2.new(1.2, 0, 0, 140)
@@ -311,11 +300,10 @@ local function createSmokeStrip(parent, baseY, flip)
     end
 end
 
--- top and bottom smoke
 createSmokeStrip(SmokeTop, -40, false)
 createSmokeStrip(SmokeBottom, -40, true)
 
--- ANIME THUNDER / LIGHTNING EFFECT
+-- THUNDER / LIGHTNING EFFECT
 local Flash = Instance.new("Frame")
 Flash.Size = UDim2.new(1, 0, 1, 0)
 Flash.Position = UDim2.new(0, 0, 0, 0)
@@ -334,7 +322,6 @@ RedTint.BorderSizePixel = 0
 RedTint.ZIndex = 19
 RedTint.Parent = PasswordGui
 
--- simple screen shake
 local function screenShake(intensity, duration)
     local start = tick()
     local basePos = PassFrame.Position
@@ -378,10 +365,9 @@ local function thunderStrike()
     end)
 end
 
--- thunder loop
 task.spawn(function()
     while not passwordAccepted and PasswordGui.Parent do
-        local waitTime = 2 + math.random() * 4 -- 2-6 seconds
+        local waitTime = 2 + math.random() * 4
         task.wait(waitTime)
         if passwordAccepted or not PasswordGui.Parent then break end
 
@@ -446,6 +432,8 @@ end
 
 local function checkPassword()
     local input = tostring(PassBox.Text or "")
+    input = input:gsub("%s+", "")
+
     if input == "" then
         PassStatus.Text = "Enter a key first."
         return
@@ -457,7 +445,7 @@ local function checkPassword()
         PassStatus.Text = msg or "Key accepted."
         acceptPassword()
     else
-        PassStatus.Text = msg or "Wrong key. The storm rejects you."
+        PassStatus.Text = msg or "Invalid key."
         TweenService:Create(
             PassBtn,
             TweenInfo.new(0.12),
@@ -480,7 +468,6 @@ PassBox.FocusLost:Connect(function(enter)
     end
 end)
 
--- Allow Enter to submit
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter then
@@ -493,8 +480,9 @@ end)
 repeat task.wait(0.1) until passwordAccepted
 
 ----------------------------------------------------------------
--- SETTINGS / REMOTES
+-- SETTINGS / REMOTES (from your original hub, unchanged)
 ----------------------------------------------------------------
+
 local SETTINGS_FILE = "Ys2cBript_Settings.json"
 
 local Settings = {
@@ -573,40 +561,41 @@ local function charHasPvpOn(char)
     return char and char:FindFirstChild("hasPvpOn") ~= nil
 end
 
--- unified hitsPerSecond
+-- unified hit speed
 local hitsPerSecond = (Settings.HitInterval and Settings.HitInterval > 0)
     and math.clamp(1 / Settings.HitInterval, 1, 50)
     or 6
 Settings.HitInterval = 1 / hitsPerSecond
 
 ----------------------------------------------------------------
--- RED LOADING SCREEN
+-- RED LOADING SCREEN (same as before)
 ----------------------------------------------------------------
+
 local LoadingGui = Instance.new("ScreenGui")
 LoadingGui.Name = "Ys2cBript_Loading"
 LoadingGui.ResetOnSpawn = false
 LoadingGui.Parent = CoreGui
 
-local BG2 = Instance.new("Frame")
-BG2.Size = UDim2.new(1, 0, 1, 0)
-BG2.BackgroundColor3 = Color3.fromRGB(5, 0, 0)
-BG2.BorderSizePixel = 0
-BG2.Parent = LoadingGui
+local LBG = Instance.new("Frame")
+LBG.Size = UDim2.new(1, 0, 1, 0)
+LBG.BackgroundColor3 = Color3.fromRGB(5, 0, 0)
+LBG.BorderSizePixel = 0
+LBG.Parent = LoadingGui
 
-local Gradient2 = Instance.new("UIGradient")
-Gradient2.Color = ColorSequence.new({
+local LGradient = Instance.new("UIGradient")
+LGradient.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 40, 40)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 0, 0))
 })
-Gradient2.Rotation = 45
-Gradient2.Parent = BG2
+LGradient.Rotation = 45
+LGradient.Parent = LBG
 
 local CenterFrame = Instance.new("Frame")
 CenterFrame.Size = UDim2.new(0, 340, 0, 160)
 CenterFrame.Position = UDim2.new(0.5, -170, 0.5, -80)
 CenterFrame.BackgroundColor3 = Color3.fromRGB(15, 0, 0)
 CenterFrame.BorderSizePixel = 0
-CenterFrame.Parent = BG2
+CenterFrame.Parent = LBG
 
 local CFCorner = Instance.new("UICorner")
 CFCorner.CornerRadius = UDim.new(0, 14)
@@ -680,7 +669,7 @@ task.spawn(function()
     end
 end)
 
--- load vertex silently and then purge its UI
+-- load vertex & nuke its UI
 task.spawn(function()
     pcall(function()
         loadstring(game:HttpGet('https://raw.smokingscripts.org/vertex.lua'))()
@@ -697,6 +686,7 @@ task.spawn(function()
         Ys2cBript_Reopen = true,
         ys2cbript_reopen = true,
         Ys2cBript_Password_Anime = true,
+        ys2cbript_password_anime = true,
     }
 
     local function isSafeRoot(inst)
@@ -705,7 +695,7 @@ task.spawn(function()
         return SAFE_GUIS[n] or SAFE_GUIS[n:lower()]
     end
 
-    for _ = 1, 200 do
+    for i = 1, 200 do
         task.wait(0.1)
         for _, inst in ipairs(cg:GetDescendants()) do
             local n = inst.Name:lower()
@@ -757,7 +747,7 @@ end)
 
 task.wait(1.5)
 local fadeTween = TweenService:Create(
-    BG2,
+    LBG,
     TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
     { BackgroundTransparency = 1 }
 )
@@ -766,8 +756,9 @@ fadeTween.Completed:Wait()
 LoadingGui:Destroy()
 
 ----------------------------------------------------------------
--- MAIN RED/ANIME UI
+-- MAIN RED UI + HELPERS (unchanged logic)
 ----------------------------------------------------------------
+
 local MainGui = Instance.new("ScreenGui")
 MainGui.Name = "Ys2cBript_UI"
 MainGui.ResetOnSpawn = false
@@ -892,7 +883,7 @@ ContentStroke.Thickness = 1.5
 ContentStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 ContentStroke.Parent = ContentFrame
 
--- UI helpers
+-- helpers
 local function createTabButton(text, order, color)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -16, 0, 40)
@@ -1030,7 +1021,6 @@ local function createToggle(parent, text, default, callback)
     end)
 
     setState(default, true)
-
     return frame
 end
 
@@ -1239,9 +1229,7 @@ end)
 setActiveTab(PlayerBtn, PlayerGlow)
 showPage(PlayerPage)
 
-----------------------------------------------------------------
 -- REOPEN BUTTON
-----------------------------------------------------------------
 local ReopenGui = Instance.new("ScreenGui")
 ReopenGui.Name = "Ys2cBript_Reopen"
 ReopenGui.ResetOnSpawn = false
@@ -1576,7 +1564,7 @@ local function emergencyHeal()
 
     lastSafeCFrame = hrp.CFrame
 
-    for _ = 1, 2 do
+    for i = 1, 2 do
         hrp.CFrame = DOCTOR_CFRAME + Vector3.new(0, 4, 0)
         task.wait(0.05 + math.random() * 0.01)
     end
@@ -1587,7 +1575,7 @@ local function emergencyHeal()
     local maxHP = hum.MaxHealth
     local t0 = tick()
     while hum.Health > 0 and hum.Health < maxHP and tick() - t0 < 8 do
-        for _ = 1, 4 do
+        for i = 1, 4 do
             pcall(function()
                 RequestSurgeryRF:InvokeServer()
             end)
@@ -1837,168 +1825,12 @@ PLLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 local protectChatConn
-
 local function disconnectProtectChat()
     if protectChatConn then
         protectChatConn:Disconnect()
         protectChatConn = nil
     end
 end
-
-local function hookProtectChat()
-    disconnectProtectChat()
-    if not protectedPlayer then return end
-
-    local plr = Players:FindFirstChild(protectedPlayer)
-    if not plr then return end
-
-    protectChatConn = plr.Chatted:Connect(function(msg)
-        if type(msg) ~= "string" then return end
-        local rawMsg = msg
-        local lowerMsg = string.lower(rawMsg)
-
-        if lowerMsg == "/start" then
-            autoProtect = true
-            Settings.AutoProtect = true
-            saveSettings()
-        elseif lowerMsg == "/stop" then
-            autoProtect = false
-            Settings.AutoProtect = false
-            forcedProtectTargetName = nil
-            saveSettings()
-        elseif lowerMsg:sub(1, 8) == "/attack_" then
-            local userPart = rawMsg:sub(9)
-            userPart = userPart:gsub("%s+", "")
-            if userPart == "" then
-                forcedProtectTargetName = nil
-                return
-            end
-
-            local resolved = nil
-            for _, p in ipairs(Players:GetPlayers()) do
-                if string.lower(p.Name) == string.lower(userPart) then
-                    resolved = p
-                    break
-                end
-            end
-            if not resolved then
-                for _, p in ipairs(Players:GetPlayers()) do
-                    if string.lower(p.DisplayName) == string.lower(userPart) then
-                        resolved = p
-                        break
-                    end
-                end
-            end
-
-            if resolved then
-                forcedProtectTargetName = resolved.Name
-            else
-                forcedProtectTargetName = nil
-            end
-        end
-    end)
-end
-
-local function refreshProtectDropdown()
-    for _, c in ipairs(ProtectList:GetChildren()) do
-        if c:IsA("TextButton") then
-            c:Destroy()
-        end
-    end
-
-    rebuildPlayerNames()
-    for _, name in ipairs(playerNames) do
-        local opt = Instance.new("TextButton")
-        opt.Size = UDim2.new(1, 0, 0, 24)
-        opt.BackgroundColor3 = Color3.fromRGB(22, 0, 0)
-        opt.BorderSizePixel = 0
-        opt.Font = Enum.Font.Gotham
-        opt.TextSize = 14
-        opt.TextColor3 = Color3.fromRGB(255, 220, 220)
-        opt.TextXAlignment = Enum.TextXAlignment.Left
-        opt.Text = " " .. name
-        opt.Parent = ProtectList
-
-        opt.MouseEnter:Connect(function()
-            opt.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-        end)
-        opt.MouseLeave:Connect(function()
-            opt.BackgroundColor3 = Color3.fromRGB(22, 0, 0)
-        end)
-        opt.MouseButton1Click:Connect(function()
-            protectedPlayer = name
-            ProtectButton.Text = " " .. name
-            ProtectList.Visible = false
-            forcedProtectTargetName = nil
-            hookProtectChat()
-        end)
-    end
-end
-
-ProtectButton.MouseButton1Click:Connect(function()
-    if ProtectList.Visible then
-        ProtectList.Visible = false
-    else
-        refreshProtectDropdown()
-        ProtectList.Visible = true
-    end
-end)
-
-local function getNearestEnemyToProtected(maxDist)
-    if not protectedPlayer then return nil end
-    local protPlr = Players:FindFirstChild(protectedPlayer)
-    if not protPlr or not protPlr.Character then return nil end
-
-    local protHRP = protPlr.Character:FindFirstChild("HumanoidRootPart")
-    if not protHRP then return nil end
-
-    local nearest, nearestD = nil, maxDist or 40
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP and p ~= protPlr and p.Character then
-            local char = p.Character
-            if charHasPvpOn(char) then
-                local th = char:FindFirstChild("HumanoidRootPart")
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if th and hum and hum.Health > 0 then
-                    local d = (th.Position - protHRP.Position).Magnitude
-                    if d < nearestD then
-                        nearestD = d
-                        nearest = p
-                    end
-                end
-            end
-        end
-    end
-    return nearest
-end
-
-local autoProtect = Settings.AutoProtect
-local forcedProtectTargetName = nil
-
-task.spawn(function()
-    while true do
-        task.wait(0.2 + math.random() * 0.02)
-        if not autoProtect or not protectedPlayer then
-            continue
-        end
-
-        local enemy
-        if forcedProtectTargetName then
-            local p = Players:FindFirstChild(forcedProtectTargetName)
-            if p and p.Character and p ~= LP and charHasPvpOn(p.Character) then
-                enemy = p
-            else
-                enemy = getNearestEnemyToProtected(40)
-            end
-        else
-            enemy = getNearestEnemyToProtected(40)
-        end
-
-        if enemy then
-            selectedTarget = enemy.Name
-        end
-    end
-end)
 
 -- PLAYER INFO PANEL
 createSectionLabel(CombatPage, "Player Info")
@@ -2262,7 +2094,7 @@ end
 
 local function tryDragBurst()
     if not JaladaDePeloEvent then return end
-    for _ = 1, 4 do
+    for i = 1, 4 do
         pcall(function()
             JaladaDePeloEvent:FireServer()
         end)
@@ -2393,10 +2225,166 @@ createToggle(CombatPage, "Auto Drag Combo (TP front stick)", autoDragCombo, func
     end
 end)
 
+-- AUTO PROTECT SYSTEM
+local autoProtect = Settings.AutoProtect
+local forcedProtectTargetName = nil
+
 local protectToggle = createToggle(CombatPage, "Auto Protect Protected Player", autoProtect, function(v)
     autoProtect = v
     Settings.AutoProtect = v
     saveSettings()
+end)
+
+local function hookProtectChat()
+    disconnectProtectChat()
+    if not protectedPlayer then return end
+
+    local plr = Players:FindFirstChild(protectedPlayer)
+    if not plr then return end
+
+    protectChatConn = plr.Chatted:Connect(function(msg)
+        if type(msg) ~= "string" then return end
+        local rawMsg = msg
+        local lowerMsg = string.lower(rawMsg)
+
+        if lowerMsg == "/start" then
+            autoProtect = true
+            Settings.AutoProtect = true
+            saveSettings()
+        elseif lowerMsg == "/stop" then
+            autoProtect = false
+            Settings.AutoProtect = false
+            forcedProtectTargetName = nil
+            saveSettings()
+        elseif lowerMsg:sub(1, 8) == "/attack_" then
+            local userPart = rawMsg:sub(9)
+            userPart = userPart:gsub("%s+", "")
+            if userPart == "" then
+                forcedProtectTargetName = nil
+                return
+            end
+
+            local resolved = nil
+            for _, p in ipairs(Players:GetPlayers()) do
+                if string.lower(p.Name) == string.lower(userPart) then
+                    resolved = p
+                    break
+                end
+            end
+            if not resolved then
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if string.lower(p.DisplayName) == string.lower(userPart) then
+                        resolved = p
+                        break
+                    end
+                end
+            end
+
+            if resolved then
+                forcedProtectTargetName = resolved.Name
+            else
+                forcedProtectTargetName = nil
+            end
+        end
+    end)
+end
+
+local function refreshProtectDropdown()
+    for _, c in ipairs(ProtectList:GetChildren()) do
+        if c:IsA("TextButton") then
+            c:Destroy()
+        end
+    end
+
+    rebuildPlayerNames()
+    for _, name in ipairs(playerNames) do
+        local opt = Instance.new("TextButton")
+        opt.Size = UDim2.new(1, 0, 0, 24)
+        opt.BackgroundColor3 = Color3.fromRGB(22, 0, 0)
+        opt.BorderSizePixel = 0
+        opt.Font = Enum.Font.Gotham
+        opt.TextSize = 14
+        opt.TextColor3 = Color3.fromRGB(255, 220, 220)
+        opt.TextXAlignment = Enum.TextXAlignment.Left
+        opt.Text = " " .. name
+        opt.Parent = ProtectList
+
+        opt.MouseEnter:Connect(function()
+            opt.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+        end)
+        opt.MouseLeave:Connect(function()
+            opt.BackgroundColor3 = Color3.fromRGB(22, 0, 0)
+        end)
+        opt.MouseButton1Click:Connect(function()
+            protectedPlayer = name
+            ProtectButton.Text = " " .. name
+            ProtectList.Visible = false
+            forcedProtectTargetName = nil
+            hookProtectChat()
+        end)
+    end
+end
+
+ProtectButton.MouseButton1Click:Connect(function()
+    if ProtectList.Visible then
+        ProtectList.Visible = false
+    else
+        refreshProtectDropdown()
+        ProtectList.Visible = true
+    end
+end)
+
+local function getNearestEnemyToProtected(maxDist)
+    if not protectedPlayer then return nil end
+    local protPlr = Players:FindFirstChild(protectedPlayer)
+    if not protPlr or not protPlr.Character then return nil end
+
+    local protHRP = protPlr.Character:FindFirstChild("HumanoidRootPart")
+    if not protHRP then return nil end
+
+    local nearest, nearestD = nil, maxDist or 40
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and p ~= protPlr and p.Character then
+            local char = p.Character
+            if charHasPvpOn(char) then
+                local th = char:FindFirstChild("HumanoidRootPart")
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if th and hum and hum.Health > 0 then
+                    local d = (th.Position - protHRP.Position).Magnitude
+                    if d < nearestD then
+                        nearestD = d
+                        nearest = p
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.2 + math.random() * 0.02)
+        if not autoProtect or not protectedPlayer then
+            continue
+        end
+
+        local enemy
+        if forcedProtectTargetName then
+            local p = Players:FindFirstChild(forcedProtectTargetName)
+            if p and p.Character and p ~= LP and charHasPvpOn(p.Character) then
+                enemy = p
+            else
+                enemy = getNearestEnemyToProtected(40)
+            end
+        else
+            enemy = getNearestEnemyToProtected(40)
+        end
+
+        if enemy then
+            selectedTarget = enemy.Name
+        end
+    end
 end)
 
 RunService.Heartbeat:Connect(function(dt)
