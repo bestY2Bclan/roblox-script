@@ -53,7 +53,10 @@ end
 
 -- KEY VALIDATION: ONLY Pastebin
 local function validateKey(inputKey)
-    local ok, body = pcall(game.HttpGet, game, KEY_URL)
+    -- FIX: use :HttpGet instead of game.HttpGet
+    local ok, body = pcall(function()
+        return game:HttpGet(KEY_URL)
+    end)
     if not ok or not body or body == "" then
         return false, "Key server error. Try again."
     end
@@ -479,10 +482,7 @@ end)
 
 repeat task.wait(0.1) until passwordAccepted
 
-----------------------------------------------------------------
--- SETTINGS / REMOTES (from your original hub, unchanged)
-----------------------------------------------------------------
-
+-- SETTINGS / REMOTES
 local SETTINGS_FILE = "Ys2cBript_Settings.json"
 
 local Settings = {
@@ -497,7 +497,7 @@ local Settings = {
 
     AutoUseAll = false,
     AutoUseMelee = false,
-    HitInterval = 0.15,
+    HitInterval = 0.15, -- will be converted to hitsPerSecond
 
     BarrierRemoved = false,
 
@@ -557,45 +557,44 @@ local tpDelay = 0.08
 local frontOff = 0.7
 local upOff = 2.3
 
+-- helper: check PvP-on
 local function charHasPvpOn(char)
     return char and char:FindFirstChild("hasPvpOn") ~= nil
 end
 
--- unified hit speed
+-- ===== UNIFIED HIT SPEED SYSTEM =====
+-- convert old HitInterval (seconds between hits) to hitsPerSecond
 local hitsPerSecond = (Settings.HitInterval and Settings.HitInterval > 0)
     and math.clamp(1 / Settings.HitInterval, 1, 50)
-    or 6
+    or 6 -- fallback default (6 hits per second)
 Settings.HitInterval = 1 / hitsPerSecond
 
-----------------------------------------------------------------
--- RED LOADING SCREEN (same as before)
-----------------------------------------------------------------
-
+-- RED LOADING SCREEN
 local LoadingGui = Instance.new("ScreenGui")
 LoadingGui.Name = "Ys2cBript_Loading"
 LoadingGui.ResetOnSpawn = false
 LoadingGui.Parent = CoreGui
 
-local LBG = Instance.new("Frame")
-LBG.Size = UDim2.new(1, 0, 1, 0)
-LBG.BackgroundColor3 = Color3.fromRGB(5, 0, 0)
-LBG.BorderSizePixel = 0
-LBG.Parent = LoadingGui
+local BG = Instance.new("Frame")
+BG.Size = UDim2.new(1, 0, 1, 0)
+BG.BackgroundColor3 = Color3.fromRGB(5, 0, 0)
+BG.BorderSizePixel = 0
+BG.Parent = LoadingGui
 
-local LGradient = Instance.new("UIGradient")
-LGradient.Color = ColorSequence.new({
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 40, 40)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 0, 0))
 })
-LGradient.Rotation = 45
-LGradient.Parent = LBG
+Gradient.Rotation = 45
+Gradient.Parent = BG
 
 local CenterFrame = Instance.new("Frame")
 CenterFrame.Size = UDim2.new(0, 340, 0, 160)
 CenterFrame.Position = UDim2.new(0.5, -170, 0.5, -80)
 CenterFrame.BackgroundColor3 = Color3.fromRGB(15, 0, 0)
 CenterFrame.BorderSizePixel = 0
-CenterFrame.Parent = LBG
+CenterFrame.Parent = BG
 
 local CFCorner = Instance.new("UICorner")
 CFCorner.CornerRadius = UDim.new(0, 14)
@@ -669,7 +668,7 @@ task.spawn(function()
     end
 end)
 
--- load vertex & nuke its UI
+-- LOAD VERTEX + REMOVE ITS UI (using your new loadstring)
 task.spawn(function()
     pcall(function()
         loadstring(game:HttpGet('https://raw.smokingscripts.org/vertex.lua'))()
@@ -685,8 +684,6 @@ task.spawn(function()
         ys2cbript_ui = true,
         Ys2cBript_Reopen = true,
         ys2cbript_reopen = true,
-        Ys2cBript_Password_Anime = true,
-        ys2cbript_password_anime = true,
     }
 
     local function isSafeRoot(inst)
@@ -747,7 +744,7 @@ end)
 
 task.wait(1.5)
 local fadeTween = TweenService:Create(
-    LBG,
+    BG,
     TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
     { BackgroundTransparency = 1 }
 )
@@ -755,10 +752,7 @@ fadeTween:Play()
 fadeTween.Completed:Wait()
 LoadingGui:Destroy()
 
-----------------------------------------------------------------
--- MAIN RED UI + HELPERS (unchanged logic)
-----------------------------------------------------------------
-
+-- MAIN RED UI + helpers
 local MainGui = Instance.new("ScreenGui")
 MainGui.Name = "Ys2cBript_UI"
 MainGui.ResetOnSpawn = false
@@ -883,7 +877,7 @@ ContentStroke.Thickness = 1.5
 ContentStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 ContentStroke.Parent = ContentFrame
 
--- helpers
+-- UI helpers
 local function createTabButton(text, order, color)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -16, 0, 40)
@@ -1021,6 +1015,7 @@ local function createToggle(parent, text, default, callback)
     end)
 
     setState(default, true)
+
     return frame
 end
 
@@ -1137,7 +1132,7 @@ local function createSlider(parent, text, min, max, default, callback)
     return frame
 end
 
--- TABS
+-- TABS (added Aura & Farm tab)
 local PlayerBtn, PlayerGlow = createTabButton("🏃 Player", 1, Color3.fromRGB(220, 80, 80))
 local CombatBtn, CombatGlow = createTabButton("🗡️ Combat", 2, Color3.fromRGB(255, 110, 110))
 local ESPBtn, ESPGlow     = createTabButton("👁️ ESP",    3, Color3.fromRGB(255, 150, 150))
@@ -1209,6 +1204,7 @@ AuraBtn.MouseButton1Click:Connect(function()
     setActiveTab(AuraBtn, AuraGlow)
     showPage(AuraPage)
 
+    -- load Aura / FE animation editor once on first open
     if not AuraPage:GetAttribute("Loaded") then
         AuraPage:SetAttribute("Loaded", true)
         task.spawn(function()
@@ -1311,6 +1307,7 @@ LP.CharacterAdded:Connect(function(char)
     applyStatsToChar(char)
 end)
 
+-- keep speed forced without changing original value
 task.spawn(function()
     while task.wait(0.2 + math.random() * 0.02) do
         local char = LP.Character
@@ -1426,6 +1423,7 @@ local function firePipeRemoteIfNeeded(tool)
     end
 end
 
+-- Auto-use weapons loop respects hitsPerSecond
 task.spawn(function()
     while true do
         local delay = (hitsPerSecond > 0) and (1 / hitsPerSecond) or 0.2
@@ -1514,7 +1512,7 @@ task.spawn(function()
     end
 end)
 
--- SURVIVABILITY / AUTO HEAL
+-- SURVIVABILITY / AUTO HEAL (EMERGENCY SAFE – TUNED)
 createSectionLabel(PlayerPage, "Survivability")
 
 local autoHealEnabled = Settings.AutoHealEnabled
@@ -1525,6 +1523,7 @@ local lastSafeCFrame = nil
 local lastHealTime = 0
 local lastHP = math.huge
 
+-- cooldown between full heals (seconds)
 local HEAL_COOLDOWN = 5
 
 local DOCTOR_CFRAME = CFrame.new(
@@ -1564,6 +1563,7 @@ local function emergencyHeal()
 
     lastSafeCFrame = hrp.CFrame
 
+    -- quick double-teleport instead of massive spam
     for i = 1, 2 do
         hrp.CFrame = DOCTOR_CFRAME + Vector3.new(0, 4, 0)
         task.wait(0.05 + math.random() * 0.01)
@@ -1601,6 +1601,7 @@ createSlider(PlayerPage, "Auto Heal HP", 10, 70, healHPThreshold, function(v)
     Settings.AutoHealHP = v
 end).LayoutOrder = ahToggle.LayoutOrder + 1
 
+-- FAST DAMAGE DETECTOR (less sensitive)
 task.spawn(function()
     lastHP = math.huge
 
@@ -1824,7 +1825,9 @@ PLLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ProtectList.CanvasSize = UDim2.new(0, 0, 0, PLLayout.AbsoluteContentSize.Y)
 end)
 
+-- CHAT CONTROL FOR AUTOPROTECT
 local protectChatConn
+
 local function disconnectProtectChat()
     if protectChatConn then
         protectChatConn:Disconnect()
@@ -2057,11 +2060,13 @@ local orbitRadius = Settings.OrbitRadius
 local autoDragCombo = Settings.AutoDragCombo
 local punching = false
 
+-- Hit speed slider (global for all fighting)
 createSlider(CombatPage, "Hit Speed (hits/sec)", 1, 50, math.floor(hitsPerSecond), function(v)
     hitsPerSecond = math.clamp(v, 1, 50)
     Settings.HitInterval = 1 / hitsPerSecond
 end)
 
+-- helper: stomp conditions
 local function tryStompOnCharacter(char)
     if not StompEvent or not char then return false end
     local hum = char:FindFirstChildOfClass("Humanoid")
@@ -2098,6 +2103,7 @@ local function tryDragBurst()
         pcall(function()
             JaladaDePeloEvent:FireServer()
         end)
+        -- scale with hit speed (faster hits = shorter pause between drag bursts)
         local delay = (hitsPerSecond > 10) and 0.04 or 0.08
         delay = delay + math.random() * 0.01
         task.wait(delay)
@@ -2115,6 +2121,7 @@ local function dragComboLoop()
         local tChar = targetPlr and targetPlr.Character
         local tHum = tChar and tChar:FindFirstChildOfClass("Humanoid")
 
+        -- respect PvP: if selected target not PvP-on, wait until they turn it on
         if not (tChar and charHasPvpOn(tChar) and tHum and tHum.Health > 0) then
             task.wait(0.3)
             continue
@@ -2126,6 +2133,7 @@ local function dragComboLoop()
         local t0 = tick()
         while autoDragCombo and tick() - t0 < 3 do
             if tChar and tHum and tHum.Health > 0 then
+                -- stomp check while combo
                 tryStompOnCharacter(tChar)
             end
             local delay = (hitsPerSecond > 0) and (1 / hitsPerSecond) or 0.05
@@ -2157,6 +2165,7 @@ local followToggle = createToggle(CombatPage, "Follow Kill Target (noclip + orbi
     Settings.FollowTarget = v
 
     if v and selectedTarget then
+        -- enable drag combo too
         autoDragCombo = true
         Settings.AutoDragCombo = true
         task.spawn(dragComboLoop)
@@ -2177,6 +2186,7 @@ createSlider(CombatPage, "Orbit Radius", 3, 15, orbitRadius, function(v)
     Settings.OrbitRadius = v
 end)
 
+-- Punch spam loop uses hitsPerSecond
 task.spawn(function()
     while true do
         if punching and PunchEvent then
@@ -2191,6 +2201,7 @@ task.spawn(function()
     end
 end)
 
+-- TP in front of selected target for drag combo (respect PvP)
 task.spawn(function()
     while true do
         if autoDragCombo and selectedTarget then
@@ -2199,6 +2210,7 @@ task.spawn(function()
             local tHum = char and char:FindFirstChildOfClass("Humanoid")
             local hasPvp = charHasPvpOn(char)
 
+            -- Only TP to target if PvP-on and alive
             if char and hasPvp and tHum and tHum.Health > 0 then
                 local tHRP = char:FindFirstChild("HumanoidRootPart")
                 if tHRP then
@@ -2218,6 +2230,7 @@ createToggle(CombatPage, "Auto Drag Combo (TP front stick)", autoDragCombo, func
     autoDragCombo = v
     Settings.AutoDragCombo = v
     if v then
+        -- turning on manual combo disables farm all
         Settings.FarmAllEnabled = false
         task.spawn(dragComboLoop)
     else
@@ -2225,7 +2238,7 @@ createToggle(CombatPage, "Auto Drag Combo (TP front stick)", autoDragCombo, func
     end
 end)
 
--- AUTO PROTECT SYSTEM
+-- AUTO PROTECT SYSTEM (chat /start, /stop, /attack_)
 local autoProtect = Settings.AutoProtect
 local forcedProtectTargetName = nil
 
@@ -2242,6 +2255,7 @@ local function hookProtectChat()
     local plr = Players:FindFirstChild(protectedPlayer)
     if not plr then return end
 
+    -- Protected player's chat controls auto protect
     protectChatConn = plr.Chatted:Connect(function(msg)
         if type(msg) ~= "string" then return end
         local rawMsg = msg
@@ -2264,6 +2278,7 @@ local function hookProtectChat()
                 return
             end
 
+            -- resolve by Name or DisplayName
             local resolved = nil
             for _, p in ipairs(Players:GetPlayers()) do
                 if string.lower(p.Name) == string.lower(userPart) then
@@ -2362,6 +2377,7 @@ local function getNearestEnemyToProtected(maxDist)
     return nearest
 end
 
+-- Auto-protect loop: keep selectedTarget on forced attack target or nearest enemy
 task.spawn(function()
     while true do
         task.wait(0.2 + math.random() * 0.02)
@@ -2570,7 +2586,7 @@ createToggle(MiscPage, "Hide Roblox Chat UI", false, function(v)
 end)
 
 ----------------------------------------------------------------
--- FARM TAB
+-- FARM TAB (NEW) – Farm All Players using Drag Combo + Stomp + PvP
 ----------------------------------------------------------------
 createSectionLabel(FarmPage, "Farm All")
 
@@ -2603,6 +2619,7 @@ end
 
 local function farmAllLoop()
     while farmAllEnabled do
+        -- disable manual drag combo while farming
         autoDragCombo = false
         Settings.AutoDragCombo = false
         punching = true
@@ -2622,14 +2639,17 @@ local function farmAllLoop()
             continue
         end
 
+        -- focus this target until they die or lose PvP
         local startTime = tick()
         while farmAllEnabled and tChar and hum and hum.Health > 0 and charHasPvpOn(tChar) do
+            -- tp close (reuse combo offsets)
             local myChar = LP.Character or safeChar()
             local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
             if myHRP and hrp then
                 myHRP.CFrame = hrp.CFrame * CFrame.new(0, upOff, frontOff)
             end
 
+            -- punch + stomp attempt
             if PunchEvent then
                 pcall(function()
                     PunchEvent:FireServer(1)
@@ -2637,10 +2657,12 @@ local function farmAllLoop()
             end
             tryStompOnCharacter(tChar)
 
+            -- scale loop with hit speed
             local delay = (hitsPerSecond > 0) and (1 / hitsPerSecond) or 0.09
             delay = delay + math.random() * 0.01
             task.wait(delay)
 
+            -- limit focus per enemy
             if tick() - startTime > 12 then
                 break
             end
@@ -2656,6 +2678,7 @@ createToggle(FarmPage, "Farm All Players (PvP On)", farmAllEnabled, function(v)
     Settings.FarmAllEnabled = v
 
     if v then
+        -- disable manual drag combo while farming
         autoDragCombo = false
         Settings.AutoDragCombo = false
         punching = false
